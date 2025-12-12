@@ -16,6 +16,7 @@
     <string name="snackbar_update_hint">App ist nicht aktuell. Bitte auf %1$s aktualisieren.</string>
     <string name="snackbar_update_action">Öffnen</string>
     <string name="snackbar_sign_successful">Signatur erfolgreich</string>
+    <string name="snackbar_personal_data_saved">Persönliche Daten lokal gespeichert</string>
 
     <string name="button_label_use_device_credential">Passwort</string>
     <string name="button_label_confirm">Bestätigen</string>
@@ -237,6 +238,29 @@
     <string name="text_label_preload_certificate">Zertifikat laden</string>
     <string name="text_label_delete_certificate">Zertifikat löschen</string>
     <string name="text_label_selected_certificate">Ausgewähltes Zertifikat</string>
+    <string name="form_label_first_name">Vorname</string>
+    <string name="form_label_last_name">Nachname</string>
+    <string name="form_label_date_of_birth">Geburtsdatum</string>
+    <string name="form_label_place_of_birth">Geburtsort</string>
+    <string name="form_label_nationality">Staatsangehörigkeit</string>
+    <string name="form_label_address">Adresse</string>
+    <string name="form_label_identity_number">Ausweisnummer</string>
+    <string name="form_label_identity_number_example">Format: 123456/1234</string>
+    <string name="form_label_sex">Geschlecht</string>
+    <string name="form_label_birth_country">Geburtsland</string>
+    <string name="form_label_birth_city">Geburtsstadt</string>
+    <string name="form_label_birth_state">Bundesland/Region bei Geburt</string>
+    <string name="form_label_address_country">Land</string>
+    <string name="form_label_address_state">Bundesland/Region</string>
+    <string name="form_label_address_city">Stadt</string>
+    <string name="form_label_address_street">Straße &amp; Hausnummer</string>
+    <string name="form_label_address_postal_code">Postleitzahl</string>
+    <string name="form_label_issue_date">Ausstellungsdatum</string>
+    <string name="form_label_expiry_date">Ablaufdatum</string>
+    <string name="label_id_card_front_photo">Ausweisfoto Vorderseite</string>
+    <string name="label_id_card_back_photo">Ausweisfoto Rückseite</string>
+    <string name="button_label_choose_from_gallery">Galerie</string>
+    <string name="button_label_take_photo">Kamera</string>
     <string name="text_label_credential_id">Credential ID</string>
     <string name="text_label_valid_from">Gültig von</string>
     <string name="text_label_valid_to">Gültig bis</string>
@@ -264,6 +288,7 @@
     <string name="heading_label_log_screen">Log</string>
     <string name="heading_label_information_screen">Information</string>
     <string name="heading_label_my_data_screen">Meine Daten</string>
+    <string name="heading_label_personal_data_screen">Persönliche Daten</string>
     <string name="heading_label_credential_details_screen">Details</string>
     <string name="heading_label_navigate_back">Zurück</string>
     <string name="heading_label_load_data_screen">Daten laden</string>
@@ -293,6 +318,7 @@
     <string name="content_description_show_attributes">Attribute anzeigen</string>
     <string name="content_description_hide_attributes">Attribute verbergen</string>
     <string name="content_description_navigate_to_settings">Gehe zu Einstellungen</string>
+    <string name="content_description_navigate_to_personal_data">Persönliche Daten öffnen</string>
 
     <string name="prompt_ask_load_missing_data">Sollen die fehlenden Daten nachgeladen werden?</string>
     <string name="prompt_send_above_data">Sollen diese Daten übermittelt werden?</string>
@@ -335,6 +361,9 @@
     <string name="error_resetting_app_failed">App konnte nicht zurückgesetzt werden.</string>
 
     <string name="info_text_show_data_situation">In welcher Situation möchten Sie Ihre Daten vorzeigen?</string>
+    <string name="info_text_date_format_hint">Format: JJJJ-MM-TT</string>
+    <string name="info_text_personal_data_subtitle">Speichern Sie grundlegende persönliche Angaben lokal auf diesem Gerät.</string>
+    <string name="info_text_personal_data_saved_locally">Ihre Angaben werden lokal gespeichert und verbleiben auf diesem Gerät.</string>
     <string name="info_text_error_occurred">Es ist ein Fehler aufgetreten.</string>
     <string name="info_text_error_action_start_screen">Sie werden zur Startseite weitergeleitet.</string>
     <string name="info_text_error_action_reset_app">Sie werden zur Erstkonfiguration weitergeleitet.</string>

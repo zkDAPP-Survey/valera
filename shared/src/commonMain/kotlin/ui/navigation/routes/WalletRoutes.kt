@@ -77,6 +77,9 @@ data class CredentialDetailsRoute(val storeEntryId: StoreEntryId) : Route()
 object SettingsRoute : Route()
 
 @Serializable
+object UserProfileRoute : Route()
+
+@Serializable
 object LogRoute : Route()
 
 @Serializable

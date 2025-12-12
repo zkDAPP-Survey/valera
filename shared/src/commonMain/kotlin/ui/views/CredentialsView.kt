@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -25,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import at.asitplus.valera.resources.Res
 import at.asitplus.valera.resources.content_description_navigate_to_settings
+import at.asitplus.valera.resources.content_description_navigate_to_personal_data
 import at.asitplus.valera.resources.heading_label_my_data_screen
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
@@ -45,6 +47,7 @@ fun CredentialsView(
     navigateToQrAddCredentialsPage: () -> Unit,
     navigateToCredentialDetailsPage: (Long) -> Unit,
     onClickLogo: () -> Unit,
+    onClickPersonalData: () -> Unit,
     onClickSettings: () -> Unit,
     koinScope: Scope,
     vm: CredentialsViewModel = koinViewModel(scope = koinScope),
@@ -65,6 +68,13 @@ fun CredentialsView(
                     }
                 },
                 actions = {
+                    Column(modifier = Modifier.clickable(onClick = onClickPersonalData)) {
+                        Icon(
+                            imageVector = Icons.Outlined.AccountCircle,
+                            contentDescription = stringResource(Res.string.content_description_navigate_to_personal_data),
+                        )
+                    }
+                    Spacer(Modifier.width(12.dp))
                     Logo(onClick = onClickLogo)
                     Column(modifier = Modifier.clickable(onClick = onClickSettings)) {
                         Icon(

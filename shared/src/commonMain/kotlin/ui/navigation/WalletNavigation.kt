@@ -259,6 +259,7 @@ private fun WalletNavHost(
                     navigate(CredentialDetailsRoute(it))
                 },
                 onClickLogo = onClickLogo,
+                onClickPersonalData = { navigate(UserProfileRoute) },
                 onClickSettings = { navigate(SettingsRoute) },
                 bottomBar = {
                     BottomBar(
@@ -608,6 +609,14 @@ private fun WalletNavHost(
                 onClickDataProtectionPolicy = null,
                 onClickLicenses = null,
                 onReset = { popBackStack(InitializationRoute) },
+                koinScope = koinScope
+            )
+        }
+        composable<UserProfileRoute> {
+            UserProfileView(
+                navigateUp = navigateBack,
+                onClickLogo = onClickLogo,
+                onClickSettings = { navigate(SettingsRoute) },
                 koinScope = koinScope
             )
         }
