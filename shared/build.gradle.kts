@@ -110,6 +110,7 @@ kotlin {
             implementation(libs.koin.compose.viewmodel)
             implementation(libs.koin.compose.viewmodel.navigation)
             implementation(libs.authcheckkit)
+            implementation("com.ionspin.kotlin:bignum:0.3.9")
         }
 
         commonTest.dependencies {

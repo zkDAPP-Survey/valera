@@ -9,6 +9,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import crypto.ZkKeyGenerator
 import data.storage.CryptoKeyRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -42,7 +43,9 @@ fun KeyGenerationSection(
                 scope.launch {
                     isGenerating = true
                     val keys = withContext(Dispatchers.Default) {
-                        generateKeyPair()
+                        // ZK-friendly key generation with Baby JubJub
+                        val keyPair = ZkKeyGenerator.generate()
+                        Pair(keyPair.privateKey, keyPair.publicKey)
                     }
                     privateKey = keys.first
                     publicKey = keys.second
@@ -62,7 +65,7 @@ fun KeyGenerationSection(
                 modifier = Modifier.size(20.dp)
             )
             Spacer(Modifier.width(8.dp))
-            Text(if (isGenerating) "Generating..." else "Generate Keys")
+            Text(if (isGenerating) "Generating..." else "Generate ZK Keys")
         }
 
         if (isGenerating) {
@@ -73,9 +76,32 @@ fun KeyGenerationSection(
         if (publicKey.isNotEmpty()) {
             Spacer(Modifier.height(24.dp))
 
+            // Info badge
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                ),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Text(
+                        text = "🔐 ZK-Friendly Keys",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "Baby JubJub Curve • EdDSA • Poseidon Hash",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+
             // Public Key Field
             Text(
-                text = "Public Key",
+                text = "Public Key (64 bytes: x + y)",
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.primary
             )
@@ -89,8 +115,8 @@ fun KeyGenerationSection(
                     textStyle = MaterialTheme.typography.bodySmall.copy(
                         fontFamily = FontFamily.Monospace
                     ),
-                    minLines = 3,
-                    maxLines = 6
+                    minLines = 2,
+                    maxLines = 3
                 )
             }
 
@@ -98,7 +124,7 @@ fun KeyGenerationSection(
 
             // Private Key Field
             Text(
-                text = "Private Key",
+                text = "Private Key (32 bytes)",
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.error
             )
@@ -112,8 +138,8 @@ fun KeyGenerationSection(
                     textStyle = MaterialTheme.typography.bodySmall.copy(
                         fontFamily = FontFamily.Monospace
                     ),
-                    minLines = 3,
-                    maxLines = 6
+                    minLines = 2,
+                    maxLines = 3
                 )
             }
 
@@ -125,36 +151,4 @@ fun KeyGenerationSection(
             )
         }
     }
-}
-
-// Функция для конвертации байта в hex строку
-private fun byteToHex(byte: Byte): String {
-    val hex = "0123456789abcdef"
-    val i = byte.toInt() and 0xFF
-    return "${hex[i shr 4]}${hex[i and 0x0F]}"
-}
-
-// Ed25519 key generation (cross-platform compatible)
-private fun generateKeyPair(): Pair<String, String> {
-    // Using SecureRandom for cryptographically strong random generation
-    val random = kotlin.random.Random.Default
-
-    // Generate 32 bytes for private key (Ed25519 standard)
-    val privateKeyBytes = ByteArray(32)
-    for (i in privateKeyBytes.indices) {
-        privateKeyBytes[i] = random.nextInt(256).toByte()
-    }
-
-    // For demo purposes, derive public key from private key
-    // In production, use proper Ed25519 implementation
-    val publicKeyBytes = ByteArray(32)
-    for (i in publicKeyBytes.indices) {
-        publicKeyBytes[i] = (privateKeyBytes[i].toInt() xor 0x5A).toByte()
-    }
-
-    // Convert to hex strings
-    val privateKeyHex = privateKeyBytes.joinToString("") { byteToHex(it) }
-    val publicKeyHex = publicKeyBytes.joinToString("") { byteToHex(it) }
-
-    return Pair(privateKeyHex, publicKeyHex)
 }

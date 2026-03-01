@@ -1,7 +1,9 @@
 package data
 
 import kotlinx.datetime.Clock
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class SignatureRequest(
     val id: String,
     val pollTitle: String,
