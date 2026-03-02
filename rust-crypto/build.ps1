@@ -1,27 +1,4 @@
-# Инициализация Visual Studio Build Tools
-$vsPath = "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools"
-$vcvarsPath = "$vsPath\VC\Auxiliary\Build\vcvars64.bat"
-
-if (-not (Test-Path $vcvarsPath)) {
-    Write-Host "ERROR: Visual Studio Build Tools not found at: $vsPath"
-    exit 1
-}
-
-# Запускаем vcvars64.bat и сохраняем переменные окружения
-$tempFile = [System.IO.Path]::GetTempFileName()
-cmd /c "`"$vcvarsPath`" && set" > $tempFile
-
-Get-Content $tempFile | ForEach-Object {
-    if ($_ -match "^(.*?)=(.*)$") {
-        Set-Item -Path "Env:$($matches[1])" -Value $matches[2]
-    }
-}
-
-Remove-Item $tempFile
-
-Write-Host "Visual Studio Build Tools initialized"
-
-# Проверка NDK
+# Настройки NDK
 $env:ANDROID_NDK_HOME = "C:\Users\$env:USERNAME\AppData\Local\Android\Sdk\ndk\29.0.14206865"
 
 if (-not (Test-Path $env:ANDROID_NDK_HOME)) {
@@ -32,7 +9,7 @@ if (-not (Test-Path $env:ANDROID_NDK_HOME)) {
 Write-Host "Using NDK: $env:ANDROID_NDK_HOME"
 Write-Host "Building for Android..."
 
-# Компиляция
+# Компиляция (vcvars уже не нужен, т.к. build scripts скомпилировались ранее)
 cargo build --target aarch64-linux-android --release
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Build failed for aarch64"
