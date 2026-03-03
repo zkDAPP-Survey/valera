@@ -16,3 +16,8 @@ ark-std = "0.4"
 rand = "0.8"
 hex = "0.4"
 sha2 = "0.10"
+
+# ✅ Добавьте эту секцию:
+[[example]]
+name = "test_signature"
+path = "examples/test_signature.rs"
