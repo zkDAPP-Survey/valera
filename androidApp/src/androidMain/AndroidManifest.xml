@@ -27,6 +27,16 @@
     <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
 
+    <queries>
+        <!-- Allow Valera to see and interact with zkDAPP Survey Frontend -->
+        <package android:name="com.zkdappsurvey.frontend" />
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="zkdappsurveyfrontend" />
+        </intent>
+    </queries>
+
     <application
         android:allowBackup="false"
         android:fullBackupContent="false"
@@ -163,6 +173,17 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <!-- May be used by issuing services to invoke the Wallet -->
                 <data android:scheme="haip-vci" />
+            </intent-filter>
+            <!-- zkDAPP Survey Frontend - Credential Sharing Request -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <!-- Handles requests from zkDAPP Survey Frontend to share credentials -->
+                <data
+                    android:scheme="asitplus-wallet"
+                    android:host="share" />
             </intent-filter>
             <intent-filter>
                 <action android:name="androidx.credentials.registry.provider.action.GET_CREDENTIAL" />

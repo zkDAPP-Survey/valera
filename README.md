@@ -56,6 +56,17 @@ Presentation type can be either SD-JWT  or ISO mDoc.
 <br>
 For more details on these credentials, head over to our [credentials collection repo](https://github.com/a-sit-plus/credential-collection)!
 
+## zkDAPP Integration
+
+Valera includes experimental support for sharing credentials with external applications via deep linking. 
+
+For integration with [zkDAPP Survey Frontend](https://github.com/oleksandrsakalosh/zkDAPP-Survey-Frontend), see **[ZKDAPP_INTEGRATION.md](./ZKDAPP_INTEGRATION.md)** for complete setup and testing instructions.
+
+The integration demonstrates:
+- Deep link-based credential sharing
+- Testing with hardcoded credentials
+- Automatic credential transfer workflow
+
 ## Design Principles
 Valera is designed with distinctly different goals in mind than the EU reference implementation.
 Most prominently, we follow a KMP-first approach. In a nutshell, this means that given the choice between
