@@ -18,3 +18,5 @@ iosApp/iosApp.xcodeproj/*
 !iosApp/iosApp.xcodeproj/project.pbxproj
 shared/shared.podspec
 metrics/
+androidApp/keystore.p12
+androidApp/keystore.p12.old
