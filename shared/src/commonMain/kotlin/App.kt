@@ -26,6 +26,7 @@ object Globals {
     var appLink = MutableStateFlow<String?>(null)
     var dcapiInvocationData = MutableStateFlow<DCAPIInvocationData?>(null)
     var presentationStateModel = MutableStateFlow<PresentationStateModel?>(null)
+    var walletMain = MutableStateFlow<WalletMain?>(null)
 }
 
 internal object AppTestTags {
@@ -40,6 +41,7 @@ fun App(koinModule: Module) {
         val koinScope = koinInject<SessionService>().scope.collectAsState().value
         catchingUnwrapped {
             val walletMain: WalletMain = koinInject(scope = koinScope)
+            Globals.walletMain.value = walletMain
 
             LifecycleEventEffect(Lifecycle.Event.ON_CREATE) {
                 Napier.d("Lifecycle.Event.ON_CREATE")

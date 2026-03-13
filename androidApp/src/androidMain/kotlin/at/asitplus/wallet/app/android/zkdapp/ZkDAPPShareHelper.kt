@@ -6,7 +6,6 @@ import android.content.ActivityNotFoundException
 import android.net.Uri
 import io.github.aakira.napier.Napier
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.net.URLEncoder
 
@@ -14,12 +13,50 @@ object ZkDAPPShareHelper {
     
     private const val TAG = "ZkDAPPShareHelper"
     private const val ZKDAPP_SCHEME = "zkdappsurveyfrontend"
+    private val json = Json { ignoreUnknownKeys = true }
+
+    @Serializable
+    data class StructuredCredentialQuery(
+        val vct: String,
+        val requestedClaims: List<String> = emptyList(),
+    )
+
+    @Serializable
+    data class StructuredRequestOptions(
+        val allowUserSelectSubset: Boolean = true,
+    )
+
+    @Serializable
+    data class StructuredPresentationRequest(
+        val version: String,
+        val requestId: String,
+        val presentationType: String,
+        val aud: String,
+        val nonce: String,
+        val callbackUrl: String,
+        val credentialQuery: StructuredCredentialQuery,
+        val options: StructuredRequestOptions? = null,
+    )
+
+    @Serializable
+    data class StructuredPresentationResponse(
+        val status: String,
+        val requestId: String? = null,
+        val presentation: String? = null,
+        val errorCode: String? = null,
+        val errorMessage: String? = null,
+    )
     
     data class ShareRequest(
         val action: String?,
         val callback: String?,
         val credentialType: String?,
         val requestId: String?,
+        val presentationType: String?,
+        val audience: String?,
+        val nonce: String?,
+        val requestedClaims: List<String>,
+        val structuredRequest: StructuredPresentationRequest?,
         val rawUri: Uri
     )
     
@@ -44,11 +81,18 @@ object ZkDAPPShareHelper {
     fun parseShareRequest(uri: Uri): ShareRequest? {
         return try {
             if (uri.scheme == "asitplus-wallet" && uri.host == "share") {
+                val structuredRequest = parseStructuredRequest(uri.getQueryParameter("request"))
+
                 ShareRequest(
                     action = uri.getQueryParameter("action"),
-                    callback = uri.getQueryParameter("callback"),
-                    credentialType = uri.getQueryParameter("type"),
-                    requestId = uri.getQueryParameter("requestId"),
+                    callback = structuredRequest?.callbackUrl ?: uri.getQueryParameter("callback"),
+                    credentialType = structuredRequest?.credentialQuery?.vct ?: uri.getQueryParameter("type"),
+                    requestId = structuredRequest?.requestId ?: uri.getQueryParameter("requestId"),
+                    presentationType = structuredRequest?.presentationType,
+                    audience = structuredRequest?.aud,
+                    nonce = structuredRequest?.nonce,
+                    requestedClaims = structuredRequest?.credentialQuery?.requestedClaims ?: emptyList(),
+                    structuredRequest = structuredRequest,
                     rawUri = uri
                 )
             } else {
@@ -58,6 +102,16 @@ object ZkDAPPShareHelper {
             Napier.e(e, tag = TAG) { "Error parsing share request: ${e.message}" }
             null
         }
+    }
+
+    private fun parseStructuredRequest(rawRequest: String?): StructuredPresentationRequest? {
+        if (rawRequest.isNullOrBlank()) return null
+
+        return runCatching {
+            json.decodeFromString<StructuredPresentationRequest>(rawRequest)
+        }.onFailure {
+            Napier.w(tag = TAG) { "Could not parse structured request payload: ${it.message}" }
+        }.getOrNull()
     }
     
     fun sendCredentialToZkDAPP(
@@ -100,6 +154,45 @@ object ZkDAPPShareHelper {
             
         } catch (e: Exception) {
             Napier.e(e, tag = TAG) { "Error sending credential to zkDAPP: ${e.message}" }
+            false
+        }
+    }
+
+    fun sendStructuredResponseToZkDAPP(
+        context: Context,
+        callbackUrl: String,
+        response: StructuredPresentationResponse,
+    ): Boolean {
+        return try {
+            val fullUrl = buildString {
+                append(callbackUrl)
+                append(if (callbackUrl.contains("?")) "&" else "?")
+                append("status=").append(URLEncoder.encode(response.status, "UTF-8"))
+                response.requestId?.let {
+                    append("&requestId=").append(URLEncoder.encode(it, "UTF-8"))
+                }
+                response.presentation?.let {
+                    append("&presentation=").append(URLEncoder.encode(it, "UTF-8"))
+                }
+                response.errorCode?.let {
+                    append("&errorCode=").append(URLEncoder.encode(it, "UTF-8"))
+                }
+                response.errorMessage?.let {
+                    append("&errorMessage=").append(URLEncoder.encode(it, "UTF-8"))
+                }
+            }
+
+            Napier.d(tag = TAG) { "Sending structured response to zkDAPP: $fullUrl" }
+
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                data = Uri.parse(fullUrl)
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+
+            context.startActivity(intent)
+            true
+        } catch (e: Exception) {
+            Napier.e(e, tag = TAG) { "Error sending structured response to zkDAPP: ${e.message}" }
             false
         }
     }
