@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.VpnKey
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -28,8 +29,16 @@ fun KeyGenerationSection(
     var privateKey by remember { mutableStateOf("") }
     var publicKey by remember { mutableStateOf("") }
     var isGenerating by remember { mutableStateOf(false) }
+    var isImporting by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var copySuccess by remember { mutableStateOf<String?>(null) }
+
+    // import dialog state
+    var showImportDialog by remember { mutableStateOf(false) }
+    var importPublicKey by remember { mutableStateOf("") }
+    var importPrivateKey by remember { mutableStateOf("") }
+    var importError by remember { mutableStateOf<String?>(null) }
+
     val scope = rememberCoroutineScope()
     val clipboardManager = LocalClipboardManager.current  // ← Используем встроенный API
 
@@ -44,7 +53,118 @@ fun KeyGenerationSection(
         }
     }
 
+    if (showImportDialog) {
+        AlertDialog(
+            title = { Text("Import key pair") },
+            text = {
+                Column {
+                    Text(
+                        "Paste your existing public/private keys. They will be stored on this device.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Spacer(Modifier.height(12.dp))
+
+                    OutlinedTextField(
+                        value = importPublicKey,
+                        onValueChange = {
+                            importPublicKey = it
+                            if (importError != null) importError = null
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Public key") },
+                        textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                        minLines = 2,
+                        maxLines = 4,
+                        singleLine = false,
+                    )
+
+                    Spacer(Modifier.height(12.dp))
+
+                    OutlinedTextField(
+                        value = importPrivateKey,
+                        onValueChange = {
+                            importPrivateKey = it
+                            if (importError != null) importError = null
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Private key") },
+                        textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                        minLines = 2,
+                        maxLines = 4,
+                        singleLine = false,
+                    )
+
+                    if (importError != null) {
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            text = importError!!,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            },
+            onDismissRequest = {
+                if (!isImporting) {
+                    showImportDialog = false
+                    importError = null
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !isImporting,
+                    onClick = {
+                        scope.launch {
+                            val pub = importPublicKey.trim()
+                            val priv = importPrivateKey.trim()
+
+                            if (pub.isEmpty() || priv.isEmpty()) {
+                                importError = "Both public and private keys are required."
+                                return@launch
+                            }
+
+                            isImporting = true
+                            importError = null
+                            error = null
+
+                            try {
+                                cryptoKeyRepository.saveKeys(priv, pub) // порядок важен: private, public
+
+                                // обновляем UI
+                                publicKey = pub
+                                privateKey = priv
+
+                                // закрываем диалог
+                                showImportDialog = false
+                                importPublicKey = ""
+                                importPrivateKey = ""
+                            } catch (e: Exception) {
+                                importError = "Failed to import keys: ${e.message}"
+                            } finally {
+                                isImporting = false
+                            }
+                        }
+                    }
+                ) {
+                    Text("Import")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    enabled = !isImporting,
+                    onClick = {
+                        showImportDialog = false
+                        importError = null
+                    }
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     Column(modifier = modifier) {
+        // Generate button
         Button(
             onClick = {
                 scope.launch {
@@ -74,7 +194,7 @@ fun KeyGenerationSection(
                     }
                 }
             },
-            enabled = !isGenerating && privateKey.isEmpty(),  // ← Деактивируется после генерации
+            enabled = !isGenerating && !isImporting && privateKey.isEmpty(),  // ← Деактивируется после генерации/импорта
             modifier = Modifier.fillMaxWidth()
         ) {
             Icon(
@@ -85,9 +205,30 @@ fun KeyGenerationSection(
             Spacer(Modifier.width(8.dp))
             Text(
                 if (isGenerating) "Generating..."
-                else if (privateKey.isNotEmpty()) "Keys Already Generated"  // ← Меняется текст
-                else "Generate ZK Keys"
+                else if (privateKey.isNotEmpty()) "Keys Already Generated"
+                else "Generate keys"
             )
+        }
+
+        // Import button (active only if keys are NOT present)
+        Spacer(Modifier.height(8.dp))
+        OutlinedButton(
+            onClick = {
+                importPublicKey = ""
+                importPrivateKey = ""
+                importError = null
+                showImportDialog = true
+            },
+            enabled = !isGenerating && !isImporting && privateKey.isEmpty(),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.FileDownload,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(Modifier.width(8.dp))
+            Text("Import key pair")
         }
 
         if (isGenerating) {
@@ -141,7 +282,7 @@ fun KeyGenerationSection(
             Spacer(Modifier.height(8.dp))
             Button(
                 onClick = {
-                    clipboardManager.setText(AnnotatedString(publicKey))  // ← Копирование
+                    clipboardManager.setText(AnnotatedString(publicKey))
                     copySuccess = "Public key copied!"
                     scope.launch {
                         kotlinx.coroutines.delay(2000)
@@ -189,7 +330,7 @@ fun KeyGenerationSection(
             Spacer(Modifier.height(8.dp))
             Button(
                 onClick = {
-                    clipboardManager.setText(AnnotatedString(privateKey))  // ← Копирование
+                    clipboardManager.setText(AnnotatedString(privateKey))
                     copySuccess = "Private key copied!"
                     scope.launch {
                         kotlinx.coroutines.delay(2000)
@@ -200,7 +341,7 @@ fun KeyGenerationSection(
                 },
                 modifier = Modifier.align(Alignment.End),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.error  // ← Красная кнопка
+                    containerColor = MaterialTheme.colorScheme.error
                 ),
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
             ) {
