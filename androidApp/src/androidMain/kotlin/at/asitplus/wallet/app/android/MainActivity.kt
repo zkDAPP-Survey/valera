@@ -1,6 +1,8 @@
 package at.asitplus.wallet.app.android
 
 import MainView
+import Globals
+import ZkDAPPCallbackData
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
@@ -36,6 +38,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import org.multipaz.prompt.AndroidPromptModel
 import ui.navigation.PRESENTATION_REQUESTED_INTENT
+import ui.navigation.routes.ZkDAPPAuthenticationRoute
 
 
 class MainActivity : AbstractWalletActivity() {
@@ -100,215 +103,82 @@ class MainActivity : AbstractWalletActivity() {
     private fun handleZkDAPPShareRequest(request: ZkDAPPShareHelper.ShareRequest) {
         try {
             val callback = request.callback
-            val credentialType = request.credentialType
-            
+            val requestedClaims = request.requestedClaims.ifEmpty {
+                defaultRequestedClaimsForCredentialType(request.credentialType)
+            }
+
             if (callback == null) {
                 Napier.e(tag = "MainActivity") { "No callback URL provided in zkDAPP request" }
                 finish()
                 return
             }
-            
+
             if (!ZkDAPPShareHelper.isValidZkDAPPCallback(callback)) {
                 Napier.e(tag = "MainActivity") { "Invalid callback URL: $callback" }
                 finish()
                 return
             }
-            
-            Napier.i(tag = "MainActivity") { 
-                "zkDAPP requesting credential type: $credentialType, presentationType: ${request.presentationType}, requestedClaims: ${request.requestedClaims}, callback: $callback"
+
+            Napier.i(tag = "MainActivity") {
+                "zkDAPP requesting credential, requestedClaims: $requestedClaims, callback: $callback"
             }
 
-            lifecycleScope.launch {
-                try {
-                    val success = sendPresentationToZkDAPP(callback, credentialType, request)
-                    Napier.i(tag = "MainActivity") { "Presentation handled (callbackLaunchSuccess=$success)" }
-                    if (success) {
-                        // Give Android a short moment to dispatch the callback intent reliably.
-                        delay(250)
-                        moveTaskToBack(true)
-                    }
-                } catch (e: Exception) {
-                    Napier.e(e, tag = "MainActivity") { "Unhandled exception in zkDAPP handler: ${e.message}" }
-                    runCatching {
-                        sendStructuredError(callback, request.requestId, "internal_error", e.message ?: "Unknown error")
-                    }
+            // Store the zkDAPP callback data in Globals for the authentication flow
+            Globals.zkdappCallbackData.value = ZkDAPPCallbackData(
+                callbackUrl = callback,
+                requestId = request.requestId,
+                audience = request.audience,
+                nonce = request.nonce,
+                requestedClaims = requestedClaims,
+                credentialType = request.credentialType,
+                sendResponse = { callbackUrl, requestId, presentation ->
+                    sendZkDAPPResponse(callbackUrl, requestId, presentation)
                 }
-            }
-            
+            )
+
+            // Navigate to the authentication flow
+            Globals.appLink.value = "zkdapp://authenticate"
+
         } catch (e: Exception) {
             Napier.e(e, tag = "MainActivity") { "Error handling zkDAPP share request: ${e.message}" }
             finish()
         }
     }
 
-    private suspend fun sendPresentationToZkDAPP(
-        callback: String,
-        credentialType: String?,
-        request: ZkDAPPShareHelper.ShareRequest,
-    ): Boolean {
-        val walletMain = withTimeoutOrNull(15_000L) {
-            Globals.walletMain.filterNotNull().first()
-        } ?: return sendStructuredError(callback, request.requestId, "wallet_not_ready", "Wallet initialization timed out after 15s")
-
-        val requestedClaims = request.requestedClaims
-        val inputDescriptorId = request.requestId ?: "zkdapp-input-descriptor"
-        val inputDescriptor = DifInputDescriptor(
-            id = inputDescriptorId,
-            format = FormatHolder(sdJwt = FormatContainerSdJwt()),
-            constraints = Constraint(
-                fields = requestedClaims.map {
-                    ConstraintField(
-                        path = listOf("$.${it}"),
-                    )
-                }
+    private fun defaultRequestedClaimsForCredentialType(credentialType: String?): List<String> {
+        return when (credentialType?.trim()) {
+            "urn:eudi:pid:1" -> listOf("family_name", "given_name", "birth_date")
+            "org.iso.18013.5.1.mDL" -> listOf(
+                "family_name",
+                "given_name",
+                "birth_date",
+                "issue_date",
+                "expiry_date",
+                "issuing_country",
+                "issuing_authority",
             )
-        )
-
-        val matchingCredentials = walletMain.holderAgent.matchInputDescriptorsAgainstCredentialStore(
-            inputDescriptors = listOf(inputDescriptor),
-            fallbackFormatHolder = null,
-        ).getOrElse {
-            Napier.e(it, tag = "MainActivity") { "Could not match requested claims against credential store" }
-            return sendStructuredError(callback, request.requestId, "credential_match_failed", "Could not match requested claims")
-        }
-
-        val requestedType = credentialType?.trim().orEmpty()
-        val descriptorEntries = matchingCredentials[inputDescriptorId]?.entries.orEmpty()
-        val sdJwtEntries = descriptorEntries.filter { (storeEntry, _) ->
-            storeEntry is SubjectCredentialStore.StoreEntry.SdJwt
-        }
-
-        if (sdJwtEntries.isEmpty()) {
-            return sendStructuredError(
-                callback,
-                request.requestId,
-                "credential_not_found",
-                "No SD-JWT credential matched the requested claim constraints"
+            "eu.europa.ec.eudi.healthid.1" -> listOf(
+                "one_time_token",
+                "affiliation_country",
+                "issue_date",
+                "expiry_date",
+                "issuing_authority",
+                "issuing_country",
             )
+            "org.iso.18013.5.1.age_verification" -> listOf("age_over_18")
+            else -> emptyList()
         }
+    }
 
-        val selectedMatch = sdJwtEntries.firstOrNull { (storeEntry, _) ->
-            val sdJwtStoreEntry = storeEntry as SubjectCredentialStore.StoreEntry.SdJwt
-            requestedType.isBlank() ||
-                sdJwtStoreEntry.sdJwt.verifiableCredentialType == requestedType ||
-                sdJwtStoreEntry.scheme?.sdJwtType == requestedType
-        } ?: run {
-            val availableTypes = sdJwtEntries.map { (storeEntry, _) ->
-                val sdJwtStoreEntry = storeEntry as SubjectCredentialStore.StoreEntry.SdJwt
-                sdJwtStoreEntry.sdJwt.verifiableCredentialType
-                    ?: sdJwtStoreEntry.scheme?.sdJwtType
-                    ?: "unknown"
-            }.distinct()
-
-            return sendStructuredError(
-                callback,
-                request.requestId,
-                "credential_type_mismatch",
-                "Requested vct '$requestedType' did not match available SD-JWT types: ${availableTypes.joinToString(",")}" 
-            )
-        }
-
-        val selectedCredential = selectedMatch.key
-        val selectedConstraints = selectedMatch.value.filterValues { it.isNotEmpty() }
-        val selectedPaths = selectedConstraints.values
-            .mapNotNull { it.firstOrNull() }
-            .map(NodeListEntry::normalizedJsonPath)
-            .filter {
-                requestedClaims.isEmpty() || getLastClaimName(it)?.let(requestedClaims::contains) == true
-            }
-
-        if (requestedClaims.isNotEmpty() && selectedPaths.isEmpty()) {
-            return sendStructuredError(
-                callback,
-                request.requestId,
-                "no_requested_claims_available",
-                "None of the requested claims are available in matching credential"
-            )
-        }
-
-        val credentialPresentation = CredentialPresentation.PresentationExchangePresentation(
-            presentationRequest = CredentialPresentationRequest.PresentationExchangeRequest(
-                presentationDefinition = PresentationDefinition(
-                    inputDescriptors = listOf(inputDescriptor),
-                ),
-            ),
-            inputDescriptorSubmissions = mapOf(
-                inputDescriptorId to PresentationExchangeCredentialDisclosure(
-                    selectedCredential,
-                    selectedPaths,
-                )
-            )
-        )
-
-        val presentationResponse = walletMain.holderAgent.createPresentation(
-            request = PresentationRequestParameters(
-                nonce = request.nonce ?: "",
-                audience = request.audience ?: "zkdapp-survey-frontend",
-            ),
-            credentialPresentation = credentialPresentation,
-        ).getOrElse {
-            Napier.e(it, tag = "MainActivity") { "Could not create presentation" }
-            val cause = it.message ?: it::class.simpleName ?: "unknown"
-            return sendStructuredError(
-                callback,
-                request.requestId,
-                "presentation_failed",
-                "Could not create presentation: $cause"
-            )
-        }
-
-        val presentation = when (presentationResponse) {
-            is PresentationResponseParameters.PresentationExchangeParameters -> {
-                val result = presentationResponse.presentationResults.firstOrNull()
-                    ?: return sendStructuredError(callback, request.requestId, "empty_presentation", "No presentation results returned")
-                when (result) {
-                    is CreatePresentationResult.SdJwt -> result.serialized
-                    is CreatePresentationResult.Signed -> result.serialized
-                    is CreatePresentationResult.DeviceResponse -> return sendStructuredError(
-                        callback, request.requestId, "unexpected_presentation_type",
-                        "Expected SD-JWT but got ISO mDL device response"
-                    )
-                }
-            }
-            else -> {
-                return sendStructuredError(
-                    callback,
-                    request.requestId,
-                    "unexpected_presentation_type",
-                    "Unsupported presentation response type"
-                )
-            }
-        }
-
+    private fun sendZkDAPPResponse(callbackUrl: String, requestId: String?, presentation: String?): Boolean {
         return ZkDAPPShareHelper.sendStructuredResponseToZkDAPP(
             context = this,
-            callbackUrl = callback,
+            callbackUrl = callbackUrl,
             response = ZkDAPPShareHelper.StructuredPresentationResponse(
                 status = "success",
-                requestId = request.requestId,
+                requestId = requestId,
                 presentation = presentation,
             )
         )
-    }
-
-    private fun sendStructuredError(
-        callback: String,
-        requestId: String?,
-        errorCode: String,
-        errorMessage: String,
-    ): Boolean = ZkDAPPShareHelper.sendStructuredResponseToZkDAPP(
-        context = this,
-        callbackUrl = callback,
-        response = ZkDAPPShareHelper.StructuredPresentationResponse(
-            status = "error",
-            requestId = requestId,
-            errorCode = errorCode,
-            errorMessage = errorMessage,
-        )
-    )
-
-    private fun getLastClaimName(path: NormalizedJsonPath): String? {
-        val segment = path.segments.lastOrNull() as? NormalizedJsonPathSegment.NameSegment
-        return segment?.memberName
     }
 }

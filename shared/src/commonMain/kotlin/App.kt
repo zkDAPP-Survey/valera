@@ -18,6 +18,19 @@ import ui.theme.WalletTheme
 import ui.viewmodels.authentication.PresentationStateModel
 
 /**
+ * Callback data for zkDAPP credential share requests
+ */
+data class ZkDAPPCallbackData(
+    val callbackUrl: String,
+    val requestId: String?,
+    val audience: String?,
+    val nonce: String?,
+    val requestedClaims: List<String>,
+    val credentialType: String?,
+    val sendResponse: (callbackUrl: String, requestId: String?, presentation: String?) -> Boolean,
+)
+
+/**
  * Global variables which help to channel information from platform-specific code
  * to compose whenever the app gets called from native code, such as via an associated domain,
  * NFC or the DC API
@@ -27,6 +40,7 @@ object Globals {
     var dcapiInvocationData = MutableStateFlow<DCAPIInvocationData?>(null)
     var presentationStateModel = MutableStateFlow<PresentationStateModel?>(null)
     var walletMain = MutableStateFlow<WalletMain?>(null)
+    var zkdappCallbackData = MutableStateFlow<ZkDAPPCallbackData?>(null)
 }
 
 internal object AppTestTags {

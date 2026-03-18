@@ -60,6 +60,8 @@ import ui.viewmodels.authentication.AuthenticationViewModel
 import ui.viewmodels.authentication.DefaultAuthenticationViewModel
 import ui.viewmodels.authentication.NewDCAPIAuthenticationViewModel
 import ui.viewmodels.authentication.PresentationViewModel
+import ui.viewmodels.authentication.ZkDAPPAuthenticationViewModel
+import ui.viewmodels.authentication.ZkDAPPRequestData
 import ui.viewmodels.intents.*
 import ui.views.*
 import ui.views.authentication.AuthenticationSuccessView
@@ -862,6 +864,56 @@ private fun WalletNavHost(
                         popBackStack(HomeScreenRoute)
                     },
                     prerequisites = prerequisites,
+                )
+            }
+        }
+
+        composable<ZkDAPPAuthenticationRoute> {
+            val vm: AuthenticationViewModel? = remember {
+                try {
+                    Globals.zkdappCallbackData.value?.let { callbackData ->
+                        ZkDAPPAuthenticationViewModel(
+                            spName = "zkDAPP Survey",
+                            spLocation = "zkDAPP Survey Frontend",
+                            spImage = null,
+                            zkdappRequestData = ZkDAPPRequestData(
+                                callbackUrl = callbackData.callbackUrl,
+                                credentialType = callbackData.credentialType,
+                                requestId = callbackData.requestId,
+                                audience = callbackData.audience,
+                                nonce = callbackData.nonce,
+                                requestedClaims = callbackData.requestedClaims,
+                            ),
+                            navigateUp = {
+                                Globals.zkdappCallbackData.value = null
+                                popBackStack(HomeScreenRoute)
+                            },
+                            navigateToAuthenticationSuccessPage = {
+                                Globals.zkdappCallbackData.value = null
+                                navigate(AuthenticationSuccessRoute(it, false))
+                            },
+                            navigateToHomeScreen = {
+                                Globals.zkdappCallbackData.value = null
+                                popBackStack(HomeScreenRoute)
+                            },
+                            walletMain = walletMain,
+                            onClickLogo = onClickLogo,
+                            onClickSettings = { navigate(SettingsRoute) },
+                            onSendResponse = callbackData.sendResponse
+                        )
+                    } ?: throw IllegalStateException("No zkDAPP callback data set")
+                } catch (e: Throwable) {
+                    Globals.zkdappCallbackData.value = null
+                    popBackStack(HomeScreenRoute)
+                    walletMain.errorService.emit(e)
+                    null
+                }
+            }
+
+            if (vm != null) {
+                AuthenticationView(
+                    vm = vm,
+                    onError = onError,
                 )
             }
         }

@@ -213,3 +213,6 @@ data class CapabilitiesRoute(val prerequisitesSerialized: String) : Route() {
     val prerequisites: Set<RoutePrerequisites>
         get() = vckJsonSerializer.decodeFromString(prerequisitesSerialized)
 }
+
+@Serializable
+object ZkDAPPAuthenticationRoute : Route()

@@ -37,18 +37,36 @@ fun AttributeSelectionGroup(
     val storeEntry = credential.key
     val attributeSelectionList: List<AttributeSelectionElement> =
         credential.value.mapNotNull { constraint ->
-            val path = constraint.value.firstOrNull()?.normalizedJsonPath ?: return@mapNotNull null
-            val memberName = (path.segments.last() as NormalizedJsonPathSegment.NameSegment).memberName
+            val path =
+                constraint.value.firstOrNull()?.normalizedJsonPath
+                    ?: constraint.key.path.firstOrNull()?.let { rawPath ->
+                        rawPath.toNormalizedJsonPathOrNull()
+                    }
+                    ?: return@mapNotNull null
+            val memberName = (path.segments.lastOrNull() as? NormalizedJsonPathSegment.NameSegment)?.memberName
+                ?: return@mapNotNull null
             val optional = constraint.key.optional
-            val value = constraint.value.first().value.let {
+            val value = constraint.value.firstOrNull()?.value?.let {
                 when (it) {
                     is JsonPrimitive -> it.content
                     else -> it.toString()
                 }
+            } ?: when (storeEntry) {
+                is SubjectCredentialStore.StoreEntry.SdJwt -> storeEntry.disclosures.values.firstOrNull {
+                    val claimName = it?.claimName ?: return@firstOrNull false
+                    claimName == memberName || claimName.endsWith(".$memberName")
+                }?.claimValue?.let {
+                    (it as? JsonPrimitive)?.content ?: ""
+                } ?: ""
+
+                else -> ""
             }
             val enabled = when (storeEntry) {
                 is SubjectCredentialStore.StoreEntry.SdJwt ->
-                    storeEntry.disclosures.values.firstOrNull { it?.claimName == memberName } != null
+                    storeEntry.disclosures.values.firstOrNull {
+                        val claimName = it?.claimName ?: return@firstOrNull false
+                        claimName == memberName || claimName.endsWith(".$memberName")
+                    } != null
                             && optional == true
 
                 else -> optional == true
@@ -96,16 +114,15 @@ fun AttributeSelectionGroup(
             Spacer(modifier = Modifier.height(4.dp))
 
             attributeSelectionList.forEach { entry ->
-                format?.getLocalization(entry.jsonPath)?.let {
-                    LabeledTextCheckbox(
-                        label = stringResource(it),
-                        text = entry.value,
-                        checked = selection[entry.memberName] ?: true,
-                        onCheckedChange = { bool -> changeSelection(bool, entry.memberName) },
-                        enabled = entry.enabled
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
+                val label = format?.getLocalization(entry.jsonPath)?.let { stringResource(it) } ?: entry.memberName
+                LabeledTextCheckbox(
+                    label = label,
+                    text = entry.value,
+                    checked = selection[entry.memberName] ?: true,
+                    onCheckedChange = { bool -> changeSelection(bool, entry.memberName) },
+                    enabled = entry.enabled
+                )
+                Spacer(modifier = Modifier.height(8.dp))
             }
         }
     }
@@ -117,3 +134,14 @@ class AttributeSelectionElement(
     val value: String,
     val enabled: Boolean
 )
+
+private fun String.toNormalizedJsonPathOrNull(): NormalizedJsonPath? {
+    val normalized = removePrefix("$").removePrefix(".").trim()
+    if (normalized.isEmpty()) return null
+    val segments = normalized
+        .split('.')
+        .filter { it.isNotBlank() }
+        .map { NormalizedJsonPathSegment.NameSegment(it) }
+    if (segments.isEmpty()) return null
+    return NormalizedJsonPath(segments)
+}

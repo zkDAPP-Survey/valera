@@ -61,16 +61,46 @@ class AuthenticationSelectionPresentationExchangeViewModel(
         } else {
             @Suppress("DEPRECATION") val submission = requests.mapNotNull { (requestsId, matches) ->
                 val credential = credentialSelection[requestsId]?.value ?: return@mapNotNull null
-                val constraints = matches[credential]?.filter { it.value.isNotEmpty() } ?: return@mapNotNull null
+                val constraints = matches[credential] ?: return@mapNotNull null
                 val attributes = attributeSelection[requestsId] ?: return@mapNotNull null
                 val disclosedAttributeSelection = constraints.mapNotNull { constraint ->
-                    val path = constraint.value.firstOrNull()?.normalizedJsonPath
-                    val memberName = (path?.segments?.last() as NormalizedJsonPathSegment.NameSegment).memberName
+                    val path =
+                        constraint.value.firstOrNull()?.normalizedJsonPath
+                            ?: constraint.key.path.firstOrNull()?.let { rawPath ->
+                                rawPath.toNormalizedJsonPathOrNull()
+                            }
+                            ?: return@mapNotNull null
+                    val memberName = (path.segments.lastOrNull() as? NormalizedJsonPathSegment.NameSegment)?.memberName
+                        ?: return@mapNotNull null
                     if (attributes[memberName] == true) {
                         path
                     } else {
                         null
                     }
+                }
+
+                val requestedMemberNames = constraints.mapNotNull { constraint ->
+                    val path =
+                        constraint.value.firstOrNull()?.normalizedJsonPath
+                            ?: constraint.key.path.firstOrNull()?.let { rawPath ->
+                                rawPath.toNormalizedJsonPathOrNull()
+                            }
+                            ?: return@mapNotNull null
+                    (path.segments.lastOrNull() as? NormalizedJsonPathSegment.NameSegment)?.memberName
+                }.toSet()
+
+                val disclosureFallbackSelection = when (credential) {
+                    is SubjectCredentialStore.StoreEntry.SdJwt -> credential.disclosures.values
+                        .filterNotNull()
+                        .mapNotNull { disclosure ->
+                            val claimName = disclosure.claimName ?: return@mapNotNull null
+                            val path = claimName.toNormalizedJsonPathOrNull() ?: return@mapNotNull null
+                            val memberName = (path.segments.lastOrNull() as? NormalizedJsonPathSegment.NameSegment)?.memberName
+                                ?: return@mapNotNull null
+                            if (memberName in requestedMemberNames && attributes[memberName] == true) path else null
+                        }
+
+                    else -> emptyList()
                 }
                 // Manually assigns all available attributes in ISO credential if only presentation of all attributes shall be supported
                 val forcedAttributes = if (credential.representation != ConstantIndex.CredentialRepresentation.ISO_MDOC) {
@@ -100,11 +130,23 @@ class AuthenticationSelectionPresentationExchangeViewModel(
 
                 requestsId to PresentationExchangeCredentialDisclosure(
                     credential,
-                    forcedAttributes ?: disclosedAttributeSelection
+                    forcedAttributes
+                        ?: disclosedAttributeSelection.ifEmpty { disclosureFallbackSelection }
                 )
             }.toMap()
             Napier.d("Presenting Selection: $submission")
             confirmSelections(PresentationExchangeCredentialSubmissions(submission))
         }
     }
+}
+
+private fun String.toNormalizedJsonPathOrNull(): NormalizedJsonPath? {
+    val normalized = removePrefix("$").removePrefix(".").trim()
+    if (normalized.isEmpty()) return null
+    val segments = normalized
+        .split('.')
+        .filter { it.isNotBlank() }
+        .map { NormalizedJsonPathSegment.NameSegment(it) }
+    if (segments.isEmpty()) return null
+    return NormalizedJsonPath(segments)
 }

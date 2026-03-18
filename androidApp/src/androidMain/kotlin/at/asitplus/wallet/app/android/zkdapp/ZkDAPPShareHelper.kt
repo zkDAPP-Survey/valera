@@ -7,6 +7,7 @@ import android.net.Uri
 import io.github.aakira.napier.Napier
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import java.net.URLDecoder
 import java.net.URLEncoder
 
 object ZkDAPPShareHelper {
@@ -82,6 +83,9 @@ object ZkDAPPShareHelper {
         return try {
             if (uri.scheme == "asitplus-wallet" && uri.host == "share") {
                 val structuredRequest = parseStructuredRequest(uri.getQueryParameter("request"))
+                val requestedClaims = structuredRequest?.credentialQuery?.requestedClaims
+                    ?.takeIf { it.isNotEmpty() }
+                    ?: parseRequestedClaims(uri)
 
                 ShareRequest(
                     action = uri.getQueryParameter("action"),
@@ -91,7 +95,7 @@ object ZkDAPPShareHelper {
                     presentationType = structuredRequest?.presentationType,
                     audience = structuredRequest?.aud,
                     nonce = structuredRequest?.nonce,
-                    requestedClaims = structuredRequest?.credentialQuery?.requestedClaims ?: emptyList(),
+                    requestedClaims = requestedClaims,
                     structuredRequest = structuredRequest,
                     rawUri = uri
                 )
@@ -107,11 +111,54 @@ object ZkDAPPShareHelper {
     private fun parseStructuredRequest(rawRequest: String?): StructuredPresentationRequest? {
         if (rawRequest.isNullOrBlank()) return null
 
-        return runCatching {
-            json.decodeFromString<StructuredPresentationRequest>(rawRequest)
-        }.onFailure {
-            Napier.w(tag = TAG) { "Could not parse structured request payload: ${it.message}" }
-        }.getOrNull()
+        val candidates = buildList {
+            add(rawRequest)
+            runCatching { URLDecoder.decode(rawRequest, "UTF-8") }.getOrNull()?.let(::add)
+            runCatching {
+                URLDecoder.decode(
+                    URLDecoder.decode(rawRequest, "UTF-8"),
+                    "UTF-8"
+                )
+            }.getOrNull()?.let(::add)
+            if (rawRequest.length > 1 && rawRequest.first() == '"' && rawRequest.last() == '"') {
+                add(rawRequest.substring(1, rawRequest.length - 1).replace("\\\"", "\""))
+            }
+        }.distinct()
+
+        candidates.forEach { candidate ->
+            runCatching {
+                json.decodeFromString<StructuredPresentationRequest>(candidate)
+            }.onSuccess {
+                return it
+            }
+        }
+
+        Napier.w(tag = TAG) { "Could not parse structured request payload from ${candidates.size} candidate(s)" }
+        return null
+    }
+
+    private fun parseRequestedClaims(uri: Uri): List<String> {
+        val raw = uri.getQueryParameter("requestedClaims")?.trim().orEmpty()
+        if (raw.isEmpty()) return emptyList()
+
+        runCatching {
+            json.decodeFromString<List<String>>(raw)
+        }.getOrNull()?.let { claims ->
+            return claims.map { it.trim() }.filter { it.isNotEmpty() }
+        }
+
+        runCatching {
+            json.decodeFromString<List<String>>(URLDecoder.decode(raw, "UTF-8"))
+        }.getOrNull()?.let { claims ->
+            return claims.map { it.trim() }.filter { it.isNotEmpty() }
+        }
+
+        return raw
+            .removePrefix("[")
+            .removeSuffix("]")
+            .split(',')
+            .map { it.trim().trim('"') }
+            .filter { it.isNotEmpty() }
     }
     
     fun sendCredentialToZkDAPP(
