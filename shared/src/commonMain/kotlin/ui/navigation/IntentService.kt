@@ -13,11 +13,13 @@ import ui.navigation.routes.SigningCredentialIntentRoute
 import ui.navigation.routes.SigningIntentRoute
 import ui.navigation.routes.SigningPreloadIntentRoute
 import ui.navigation.routes.SigningServiceIntentRoute
+import ui.navigation.routes.ZkDAPPAuthenticationRoute
 
 const val PRESENTATION_REQUESTED_INTENT = "PRESENTATION_REQUESTED"
 const val SIGNING_REQUEST_INTENT = "createSignRequest"
 const val GET_CREDENTIALS_INTENT = "androidx.identitycredentials.action.GET_CREDENTIALS"
 const val GET_CREDENTIAL_INTENT = "androidx.credentials.registry.provider.action.GET_CREDENTIAL"
+const val ZKDAPP_AUTHENTICATE_INTENT = "zkdapp://authenticate"
 
 class IntentService(
     val platformAdapter: PlatformAdapter
@@ -37,10 +39,12 @@ class IntentService(
             IntentType.SigningCredentialIntent -> SigningCredentialIntentRoute(uri)
             IntentType.SigningIntent -> SigningIntentRoute(uri)
             IntentType.ErrorIntent -> ErrorIntentRoute(uri)
+            IntentType.ZkDAPPAuthenticationIntent -> ZkDAPPAuthenticationRoute
         }
 
     fun parseUrl(url: String): IntentType = with(url) {
         when {
+            equals(ZKDAPP_AUTHENTICATE_INTENT) -> IntentType.ZkDAPPAuthenticationIntent
             contains("error") -> IntentType.ErrorIntent
             contains(SIGNING_REQUEST_INTENT) -> IntentType.SigningIntent
             equals(GET_CREDENTIALS_INTENT) || equals(GET_CREDENTIAL_INTENT) -> IntentType.DCAPIAuthorizationIntent
@@ -69,5 +73,6 @@ class IntentService(
         SigningCredentialIntent,
         SigningPreloadIntent,
         SigningIntent,
+        ZkDAPPAuthenticationIntent,
     }
 }
