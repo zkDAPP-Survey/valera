@@ -10,6 +10,8 @@ import at.asitplus.wallet.app.common.domain.platform.ImageDecoder
 import at.asitplus.wallet.app.common.domain.platform.UrlOpener
 import at.asitplus.wallet.lib.agent.KeyMaterial
 import at.asitplus.wallet.lib.agent.SubjectCredentialStore
+import data.storage.CryptoKeyRepository
+import data.storage.CryptoKeyRepositoryImpl
 import data.storage.DataStoreService
 import data.storage.HotWalletSubjectCredentialStore
 import data.storage.PersistentSubjectCredentialStore

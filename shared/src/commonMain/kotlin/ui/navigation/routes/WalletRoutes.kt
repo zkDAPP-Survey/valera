@@ -39,6 +39,9 @@ enum class RoutePrerequisites {
 object InitializationRoute : Route()
 
 @Serializable
+object ZkProofTestRoute : Route()
+
+@Serializable
 object HomeScreenRoute : PrerequisiteRoute(setOf(RoutePrerequisites.CRYPTO))
 
 @Serializable
