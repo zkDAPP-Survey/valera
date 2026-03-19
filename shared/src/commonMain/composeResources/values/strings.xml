@@ -16,6 +16,7 @@
     <string name="snackbar_update_hint">Your app is out-of-date, please update to %1$s.</string>
     <string name="snackbar_update_action">Open</string>
     <string name="snackbar_sign_successful">Signed successfully</string>
+    <string name="snackbar_personal_data_saved">Personal data saved locally</string>
 
     <string name="button_label_use_device_credential">Passcode</string>
     <string name="button_label_confirm">Confirm</string>
@@ -237,6 +238,29 @@
     <string name="text_label_preload_certificate">Preload certificate</string>
     <string name="text_label_delete_certificate">Delete certificate</string>
     <string name="text_label_selected_certificate">Selected certificate</string>
+    <string name="form_label_first_name">First name</string>
+    <string name="form_label_last_name">Last name</string>
+    <string name="form_label_date_of_birth">Date of birth</string>
+    <string name="form_label_place_of_birth">Place of birth</string>
+    <string name="form_label_nationality">Nationality</string>
+    <string name="form_label_address">Address</string>
+    <string name="form_label_identity_number">Identity number</string>
+    <string name="form_label_identity_number_example">Format: 123456/1234</string>
+    <string name="form_label_sex">Sex</string>
+    <string name="form_label_birth_country">Birth country</string>
+    <string name="form_label_birth_city">Birth city</string>
+    <string name="form_label_birth_state">Birth state/region</string>
+    <string name="form_label_address_country">Country</string>
+    <string name="form_label_address_state">State/Region</string>
+    <string name="form_label_address_city">City</string>
+    <string name="form_label_address_street">Street &amp; number</string>
+    <string name="form_label_address_postal_code">Postal code</string>
+    <string name="form_label_issue_date">Issue date</string>
+    <string name="form_label_expiry_date">Expiry date</string>
+    <string name="label_id_card_front_photo">Identity card photo (front)</string>
+    <string name="label_id_card_back_photo">Identity card photo (back)</string>
+    <string name="button_label_choose_from_gallery">Gallery</string>
+    <string name="button_label_take_photo">Camera</string>
     <string name="text_label_credential_id">Credential ID</string>
     <string name="text_label_valid_from">Valid from</string>
     <string name="text_label_valid_to">Valid to</string>
@@ -264,6 +288,7 @@
     <string name="heading_label_log_screen">Log</string>
     <string name="heading_label_information_screen">Information</string>
     <string name="heading_label_my_data_screen">My Data</string>
+    <string name="heading_label_personal_data_screen">Personal data</string>
     <string name="heading_label_credential_details_screen">Details</string>
     <string name="heading_label_navigate_back">Back</string>
     <string name="heading_label_load_data_screen">Load data</string>
@@ -294,6 +319,7 @@
     <string name="content_description_show_attributes">Show attributes</string>
     <string name="content_description_hide_attributes">Hide attributes</string>
     <string name="content_description_navigate_to_settings">Go to Settings</string>
+    <string name="content_description_navigate_to_personal_data">Open personal data</string>
 
     <string name="prompt_ask_load_missing_data">Should the missing attributes be loaded?</string>
     <string name="prompt_send_above_data">Should this data be presented?</string>
@@ -335,6 +361,9 @@
     <string name="error_resetting_app_failed">Resetting the app failed.</string>
 
     <string name="info_text_show_data_situation">In which Situation do you want to present your data?</string>
+    <string name="info_text_date_format_hint">Format: YYYY-MM-DD</string>
+    <string name="info_text_personal_data_subtitle">Store basic personal details locally on this device.</string>
+    <string name="info_text_personal_data_saved_locally">Your details are stored locally and stay on this device.</string>
     <string name="info_text_error_occurred">An error occurred.</string>
     <string name="info_text_error_action_start_screen">You will be redirected to the start screen.</string>
     <string name="info_text_error_action_reset_app">You will be redirected to the initialization screen.</string>
