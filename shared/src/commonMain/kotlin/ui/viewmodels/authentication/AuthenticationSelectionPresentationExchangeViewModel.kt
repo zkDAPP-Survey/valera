@@ -97,7 +97,10 @@ class AuthenticationSelectionPresentationExchangeViewModel(
                             val path = claimName.toNormalizedJsonPathOrNull() ?: return@mapNotNull null
                             val memberName = (path.segments.lastOrNull() as? NormalizedJsonPathSegment.NameSegment)?.memberName
                                 ?: return@mapNotNull null
-                            if (memberName in requestedMemberNames && attributes[memberName] == true) path else null
+                            val matchingRequestedMember = requestedMemberNames.firstOrNull {
+                                claimName.matchesRequestedClaim(it)
+                            } ?: return@mapNotNull null
+                            if (attributes[matchingRequestedMember] == true) path else null
                         }
 
                     else -> emptyList()
@@ -149,4 +152,56 @@ private fun String.toNormalizedJsonPathOrNull(): NormalizedJsonPath? {
         .map { NormalizedJsonPathSegment.NameSegment(it) }
     if (segments.isEmpty()) return null
     return NormalizedJsonPath(segments)
+}
+
+private fun String.matchesRequestedClaim(requestedMemberName: String): Boolean {
+    val disclosureTokens = claimPathTokens()
+    val aliases = claimAliases(requestedMemberName)
+    return disclosureTokens.any { it in aliases }
+}
+
+private fun claimAliases(claimName: String): Set<String> {
+    val canonical = canonicalClaimName(claimName.trim())
+    if (canonical.isEmpty()) return emptySet()
+
+    val aliases = linkedSetOf(canonical)
+    when (canonical) {
+        "birth_date" -> {
+            aliases += "birth_date"
+            aliases += "date_of_birth"
+            aliases += "birthdate"
+            aliases += "dob"
+        }
+
+        "issuance_date" -> {
+            aliases += "issue_date"
+            aliases += "issuance_date"
+            aliases += "iat"
+        }
+
+        "expiry_date" -> {
+            aliases += "expiry_date"
+            aliases += "expiration_date"
+            aliases += "exp"
+        }
+    }
+    return aliases
+}
+
+private fun canonicalClaimName(claimName: String): String = when (claimName) {
+    "date_of_birth", "birthdate", "dob" -> "birth_date"
+    "issue_date", "iat" -> "issuance_date"
+    "expiration_date", "exp" -> "expiry_date"
+    else -> claimName
+}
+
+private fun String.claimPathTokens(): Set<String> {
+    val normalized = trim().removePrefix("$")
+    if (normalized.isEmpty()) return emptySet()
+    return normalized
+        .split('.', '/', '#', ':', '[', ']', '"', '\'', ' ')
+        .map { it.trim() }
+        .filter { it.isNotEmpty() }
+        .map { canonicalClaimName(it) }
+        .toSet()
 }

@@ -154,7 +154,19 @@ private fun String.toConstraintPaths(): List<String> {
     when (claim) {
         "gender" -> baseClaims += "sex"
         "nationality" -> baseClaims += "nationalities"
-        "issue_date" -> baseClaims += "issuance_date"
+        "birth_date" -> {
+            baseClaims += "date_of_birth"
+            baseClaims += "birthdate"
+            baseClaims += "dob"
+        }
+        "issue_date" -> {
+            baseClaims += "issuance_date"
+            baseClaims += "iat"
+        }
+        "expiry_date" -> {
+            baseClaims += "expiration_date"
+            baseClaims += "exp"
+        }
         "resident_address" -> {
             baseClaims += "address"
             baseClaims += "address.formatted"
