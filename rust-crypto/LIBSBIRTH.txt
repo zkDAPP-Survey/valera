@@ -1,0 +1,5 @@
+Firstly -> cd valera/rust-crypto
+Then -> cargo build
+Eventually -> .\build.ps1
+
+U welcome mf

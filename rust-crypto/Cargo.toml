@@ -1,0 +1,22 @@
+[package]
+name = "valera_crypto"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "valera_crypto"
+crate-type = ["cdylib"]
+
+[dependencies]
+jni = "0.21"
+ark-ed-on-bn254 = "0.4"
+ark-ff = "0.4"
+ark-ec = "0.4"
+ark-std = "0.4"
+rand = "0.8"
+hex = "0.4"
+sha2 = "0.10"
+
+[[example]]
+name = "test_signature"
+path = "examples/test_signature.rs"

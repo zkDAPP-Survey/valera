@@ -56,16 +56,106 @@ Presentation type can be either SD-JWT  or ISO mDoc.
 <br>
 For more details on these credentials, head over to our [credentials collection repo](https://github.com/a-sit-plus/credential-collection)!
 
-## zkDAPP Integration
 
-Valera includes experimental support for sharing credentials with external applications via deep linking. 
+## Quick Setup
 
-For integration with [zkDAPP Survey Frontend](https://github.com/oleksandrsakalosh/zkDAPP-Survey-Frontend), see **[ZKDAPP_INTEGRATION.md](./ZKDAPP_INTEGRATION.md)** for complete setup and testing instructions.
+### Prerequisites
 
-The integration demonstrates:
-- Deep link-based credential sharing
-- Testing with hardcoded credentials
-- Automatic credential transfer workflow
+- Java JDK 17+ (for keytool command)
+- Android Studio
+- Git configured to use symlinks
+- Android Emulator or physical device
+
+### Setup Steps
+
+#### 1. Configure Git for Symlinks
+
+```bash
+git config --global core.symlinks true
+```
+
+#### 2. Clone Repository
+
+```bash
+git clone https://github.com/a-sit-plus/valera.git
+cd valera
+```
+
+#### 3. Open in Android Studio
+
+Open the `valera` folder in Android Studio and wait for Gradle to install dependencies.
+
+#### 4. Configure Android SDK Path
+
+Create `local.properties` in the project root with your Android SDK location:
+
+```properties
+sdk.dir=C:\\Users\\<YourUsername>\\AppData\\Local\\Android\\Sdk
+```
+
+**To find your SDK path:** Open Android Studio → Settings → Appearance & Behavior → System Settings → Android SDK
+
+#### 5. Configure Signing
+
+**a) Rename or delete existing keystore**
+
+`valera\androidApp\keystore.p12` -> `valera\androidApp\keystore.p12.old`
+
+
+**b) Create new keystore:**
+
+Run in `/androidApp`:
+```bash
+"Path\to\JDK\bin\keytool.exe" -genkeypair ^
+  -v ^
+  -keystore keystore.p12 ^
+  -storetype PKCS12 ^
+  -storepass myStrongPassword123 ^
+  -alias key0 ^
+  -keypass myStrongPassword123 ^
+  -keyalg RSA ^
+  -keysize 2048 ^
+  -validity 10000 ^
+  -dname "CN=Valera Local,O=Local,L=Bratislava,ST=BA,C=SK"
+```
+
+**c) Add password to local.properties:**
+```properties
+android.cert.password=myStrongPassword123
+```
+
+#### 6. Set Up Android Virtual Device
+
+**a) Create emulator:**
+- In Android Studio, use Device Manager to create a virtual device with the newest API level
+- See [Android documentation](https://developer.android.com/studio/run/managing-avds) for detailed steps
+
+**b) Configure device screen lock:**
+- Open the emulator
+- Go to Settings → Security and privacy → Device unlock → Screen lock
+- Choose a screen lock (PIN, pattern, or password)
+
+**c) Set up fingerprint (required for wallet functionality):**
+- In device settings, navigate to add a fingerprint
+- In Android Studio, open "Extended Controls" (three dots on emulator panel)
+- Choose "Fingerprint" tab
+- Use "Touch Sensor" button to simulate fingerprint while following setup steps on device
+
+> **Note:** Screen lock and biometric authentication are required for Valera to function properly.
+
+#### 7. Run the App
+
+Connect your Android device (via USB or WiFi) or start the emulator, then run the app from Android Studio.
+
+Alternatively, use Gradle:
+```bash
+./gradlew :androidApp:installDebug
+```
+
+### Integration with zkDAPP Survey Frontend
+
+To test credential sharing with zkDAPP Survey Frontend, see [zkDAPP Survey Frontend README](../zkDAPP-Survey-Frontend/README.md) for setup instructions. Both apps need to run on the same Android emulator.
+
 
 ## Design Principles
 Valera is designed with distinctly different goals in mind than the EU reference implementation.

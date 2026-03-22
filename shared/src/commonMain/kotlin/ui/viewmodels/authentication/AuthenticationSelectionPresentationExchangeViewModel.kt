@@ -61,16 +61,49 @@ class AuthenticationSelectionPresentationExchangeViewModel(
         } else {
             @Suppress("DEPRECATION") val submission = requests.mapNotNull { (requestsId, matches) ->
                 val credential = credentialSelection[requestsId]?.value ?: return@mapNotNull null
-                val constraints = matches[credential]?.filter { it.value.isNotEmpty() } ?: return@mapNotNull null
+                val constraints = matches[credential] ?: return@mapNotNull null
                 val attributes = attributeSelection[requestsId] ?: return@mapNotNull null
                 val disclosedAttributeSelection = constraints.mapNotNull { constraint ->
-                    val path = constraint.value.firstOrNull()?.normalizedJsonPath
-                    val memberName = (path?.segments?.last() as NormalizedJsonPathSegment.NameSegment).memberName
+                    val path =
+                        constraint.value.firstOrNull()?.normalizedJsonPath
+                            ?: constraint.key.path.firstOrNull()?.let { rawPath ->
+                                rawPath.toNormalizedJsonPathOrNull()
+                            }
+                            ?: return@mapNotNull null
+                    val memberName = (path.segments.lastOrNull() as? NormalizedJsonPathSegment.NameSegment)?.memberName
+                        ?: return@mapNotNull null
                     if (attributes[memberName] == true) {
                         path
                     } else {
                         null
                     }
+                }
+
+                val requestedMemberNames = constraints.mapNotNull { constraint ->
+                    val path =
+                        constraint.value.firstOrNull()?.normalizedJsonPath
+                            ?: constraint.key.path.firstOrNull()?.let { rawPath ->
+                                rawPath.toNormalizedJsonPathOrNull()
+                            }
+                            ?: return@mapNotNull null
+                    (path.segments.lastOrNull() as? NormalizedJsonPathSegment.NameSegment)?.memberName
+                }.toSet()
+
+                val disclosureFallbackSelection = when (credential) {
+                    is SubjectCredentialStore.StoreEntry.SdJwt -> credential.disclosures.values
+                        .filterNotNull()
+                        .mapNotNull { disclosure ->
+                            val claimName = disclosure.claimName ?: return@mapNotNull null
+                            val path = claimName.toNormalizedJsonPathOrNull() ?: return@mapNotNull null
+                            val memberName = (path.segments.lastOrNull() as? NormalizedJsonPathSegment.NameSegment)?.memberName
+                                ?: return@mapNotNull null
+                            val matchingRequestedMember = requestedMemberNames.firstOrNull {
+                                claimName.matchesRequestedClaim(it)
+                            } ?: return@mapNotNull null
+                            if (attributes[matchingRequestedMember] == true) path else null
+                        }
+
+                    else -> emptyList()
                 }
                 // Manually assigns all available attributes in ISO credential if only presentation of all attributes shall be supported
                 val forcedAttributes = if (credential.representation != ConstantIndex.CredentialRepresentation.ISO_MDOC) {
@@ -100,11 +133,75 @@ class AuthenticationSelectionPresentationExchangeViewModel(
 
                 requestsId to PresentationExchangeCredentialDisclosure(
                     credential,
-                    forcedAttributes ?: disclosedAttributeSelection
+                    forcedAttributes
+                        ?: disclosedAttributeSelection.ifEmpty { disclosureFallbackSelection }
                 )
             }.toMap()
             Napier.d("Presenting Selection: $submission")
             confirmSelections(PresentationExchangeCredentialSubmissions(submission))
         }
     }
+}
+
+private fun String.toNormalizedJsonPathOrNull(): NormalizedJsonPath? {
+    val normalized = removePrefix("$").removePrefix(".").trim()
+    if (normalized.isEmpty()) return null
+    val segments = normalized
+        .split('.')
+        .filter { it.isNotBlank() }
+        .map { NormalizedJsonPathSegment.NameSegment(it) }
+    if (segments.isEmpty()) return null
+    return NormalizedJsonPath(segments)
+}
+
+private fun String.matchesRequestedClaim(requestedMemberName: String): Boolean {
+    val disclosureTokens = claimPathTokens()
+    val aliases = claimAliases(requestedMemberName)
+    return disclosureTokens.any { it in aliases }
+}
+
+private fun claimAliases(claimName: String): Set<String> {
+    val canonical = canonicalClaimName(claimName.trim())
+    if (canonical.isEmpty()) return emptySet()
+
+    val aliases = linkedSetOf(canonical)
+    when (canonical) {
+        "birth_date" -> {
+            aliases += "birth_date"
+            aliases += "date_of_birth"
+            aliases += "birthdate"
+            aliases += "dob"
+        }
+
+        "issuance_date" -> {
+            aliases += "issue_date"
+            aliases += "issuance_date"
+            aliases += "iat"
+        }
+
+        "expiry_date" -> {
+            aliases += "expiry_date"
+            aliases += "expiration_date"
+            aliases += "exp"
+        }
+    }
+    return aliases
+}
+
+private fun canonicalClaimName(claimName: String): String = when (claimName) {
+    "date_of_birth", "birthdate", "dob" -> "birth_date"
+    "issue_date", "iat" -> "issuance_date"
+    "expiration_date", "exp" -> "expiry_date"
+    else -> claimName
+}
+
+private fun String.claimPathTokens(): Set<String> {
+    val normalized = trim().removePrefix("$")
+    if (normalized.isEmpty()) return emptySet()
+    return normalized
+        .split('.', '/', '#', ':', '[', ']', '"', '\'', ' ')
+        .map { it.trim() }
+        .filter { it.isNotEmpty() }
+        .map { canonicalClaimName(it) }
+        .toSet()
 }

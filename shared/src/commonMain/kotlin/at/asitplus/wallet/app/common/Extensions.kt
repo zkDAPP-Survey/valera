@@ -48,7 +48,7 @@ fun InputDescriptor.extractConsentData(): Triple<CredentialRepresentation, Const
     }
     val credentialIdentifiers = when (credentialRepresentation) {
         PLAIN_JWT -> throw Throwable("PLAIN_JWT not implemented")
-        SD_JWT -> vctConstraint()?.filter?.referenceValues()
+        SD_JWT -> vctConstraint()?.filter?.referenceValues() ?: listOf(id)
         ISO_MDOC -> listOf(this.id)
     } ?: throw Throwable("Missing Pattern")
 
@@ -80,11 +80,23 @@ fun InputDescriptor.extractConsentData(): Triple<CredentialRepresentation, Const
         pathAuthorizationValidator = { true },
     ).getOrThrow()
 
-    val attributes = constraintsMap.mapNotNull {
+    val attributesFromEvaluator = constraintsMap.mapNotNull {
         val path = it.value.map { it.normalizedJsonPath }.firstOrNull() ?: return@mapNotNull null
         val optional = it.key.optional != false // optional by default
         path to optional
     }.toMap()
+
+    val attributes = if (attributesFromEvaluator.isNotEmpty()) {
+        attributesFromEvaluator
+    } else {
+        constraints?.fields
+            ?.mapNotNull { field ->
+                val path = field.path.firstOrNull()?.toNormalizedJsonPathOrNull() ?: return@mapNotNull null
+                path to (field.optional != false)
+            }
+            ?.toMap()
+            ?: emptyMap()
+    }
 
     return Triple(credentialRepresentation, scheme, attributes)
 }
@@ -103,6 +115,17 @@ private fun InputDescriptor.vctConstraint() =
 
 private fun ConstraintFilter.referenceValues() =
     (pattern ?: const?.content)?.let { listOf(it) } ?: enum
+
+private fun String.toNormalizedJsonPathOrNull(): NormalizedJsonPath? {
+    val normalized = removePrefix("$").removePrefix(".").trim()
+    if (normalized.isEmpty()) return null
+    val segments = normalized
+        .split('.')
+        .filter { it.isNotBlank() }
+        .map { NormalizedJsonPathSegment.NameSegment(it) }
+    if (segments.isEmpty()) return null
+    return NormalizedJsonPath(segments)
+}
 
 @Throws(Throwable::class)
 fun DCQLCredentialQuery.extractConsentData(): Triple<CredentialRepresentation, ConstantIndex.CredentialScheme, Collection<SingleClaimReference?>?> {
