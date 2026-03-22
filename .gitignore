@@ -20,3 +20,4 @@ shared/shared.podspec
 metrics/
 androidApp/keystore.p12
 androidApp/keystore.p12.old
+rust-crypto/target/*
