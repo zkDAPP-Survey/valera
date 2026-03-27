@@ -15,6 +15,8 @@ import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
@@ -41,6 +43,7 @@ import at.asitplus.wallet.app.common.WalletMain
 import at.asitplus.wallet.app.common.data.SettingsRepository
 import at.asitplus.wallet.app.common.domain.platform.UrlOpener
 import at.asitplus.wallet.lib.data.vckJsonSerializer
+import data.storage.CryptoKeyRepository
 import io.github.aakira.napier.Napier
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -157,6 +160,7 @@ fun WalletNavigation(
             navigateBack,
             popBackStack,
             navigatePending,
+            snackbarHostState,
             onClickLogo,
             onError = { e ->
                 popBackStack(HomeScreenRoute)
@@ -214,6 +218,7 @@ private fun WalletNavHost(
     navigateBack: () -> Unit,
     popBackStack: (Route) -> Unit,
     navigatePending: () -> Unit,
+    snackbarHostState: SnackbarHostState,
     onClickLogo: () -> Unit,
     onError: (Throwable) -> Unit,
     koinScope: Scope,
@@ -891,6 +896,36 @@ private fun WalletNavHost(
         }
 
         composable<ZkDAPPAuthenticationRoute> {
+            val cryptoKeyRepository: CryptoKeyRepository = koinInject()
+            val hasZkKeyPair by produceState<Boolean?>(initialValue = null) {
+                value = runCatching { cryptoKeyRepository.hasKeys() }.getOrElse {
+                    Napier.e(it, tag = "WalletNavigation") { "Failed to check BabyJubJub key presence" }
+                    false
+                }
+            }
+
+            if (hasZkKeyPair == null) {
+                LoadingView()
+                return@composable
+            }
+
+            if (hasZkKeyPair == false) {
+                LaunchedEffect(Unit) {
+                    val result = snackbarHostState.showSnackbar(
+                        message = "No BabyJubJub key pair found. Generate keys in Settings to continue.",
+                        actionLabel = "Settings",
+                        withDismissAction = true,
+                    )
+                    Globals.zkdappCallbackData.value = null
+                    when (result) {
+                        SnackbarResult.ActionPerformed -> navigate(SettingsRoute)
+                        else -> popBackStack(HomeScreenRoute)
+                    }
+                }
+                LoadingView()
+                return@composable
+            }
+
             val vm: AuthenticationViewModel? = remember {
                 try {
                     Globals.zkdappCallbackData.value?.let { callbackData ->

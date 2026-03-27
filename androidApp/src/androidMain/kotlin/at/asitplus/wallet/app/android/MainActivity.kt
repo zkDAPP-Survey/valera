@@ -4,6 +4,7 @@ import MainView
 import Globals
 import ZkDAPPCallbackData
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.compose.setContent
@@ -14,6 +15,8 @@ import at.asitplus.wallet.app.android.dcapi.DCAPIInvocationData
 import at.asitplus.wallet.app.android.zkdapp.ZkDAPPShareHelper
 import at.asitplus.wallet.app.common.BuildContext
 import at.asitplus.wallet.app.common.BuildType
+import crypto.ZkKeyGenerator
+import data.storage.CryptoKeyRepositoryImpl
 import at.asitplus.wallet.lib.agent.CreatePresentationResult
 import at.asitplus.wallet.lib.agent.PresentationExchangeCredentialDisclosure
 import at.asitplus.wallet.lib.agent.PresentationRequestParameters
@@ -35,6 +38,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 import org.multipaz.prompt.AndroidPromptModel
 import ui.navigation.PRESENTATION_REQUESTED_INTENT
@@ -45,6 +49,7 @@ class MainActivity : AbstractWalletActivity() {
 
     companion object {
         const val ZKDAPP_SHARE_REQUEST_INTENT = "zkdapp.SHARE_REQUEST"
+        private const val HOLDER_ALG_BABYJUBJUB = "BABYJUBJUB_EDDSA"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -171,6 +176,35 @@ class MainActivity : AbstractWalletActivity() {
     }
 
     private fun sendZkDAPPResponse(callbackUrl: String, requestId: String?, presentation: String?): Boolean {
+        val voteHashHex = Uri.parse(callbackUrl).getQueryParameter("voteHash")
+            ?.trim()
+            ?.lowercase()
+            .orEmpty()
+        val voteHashBytes = voteHashHex.hexToByteArrayOrNull()
+        if (voteHashBytes == null) {
+            Napier.e(tag = "MainActivity") {
+                "Missing or invalid voteHash in zkDAPP callback URL. Expected lowercase hex string."
+            }
+            return false
+        }
+
+        val holderMaterial = runCatching {
+            val walletMain = Globals.walletMain.value
+                ?: throw IllegalStateException("WalletMain not initialized")
+            val keyRepository = CryptoKeyRepositoryImpl(walletMain.dataStoreService)
+            val privateKey = runBlocking { keyRepository.getPrivateKey() }
+            val publicKey = runBlocking { keyRepository.getPublicKey() }
+            if (privateKey.isNullOrBlank() || publicKey.isNullOrBlank()) {
+                null
+            } else {
+                val signature = ZkKeyGenerator.signToHex(privateKey, voteHashBytes)
+                Triple(signature, publicKey, HOLDER_ALG_BABYJUBJUB)
+            }
+        }.getOrElse {
+            Napier.e(it, tag = "MainActivity") { "Could not produce holder BabyJubJub signature for zkDAPP callback" }
+            null
+        }
+
         return ZkDAPPShareHelper.sendStructuredResponseToZkDAPP(
             context = this,
             callbackUrl = callbackUrl,
@@ -178,7 +212,20 @@ class MainActivity : AbstractWalletActivity() {
                 status = "success",
                 requestId = requestId,
                 presentation = presentation,
+                voteHash = voteHashHex,
+                holderSignature = holderMaterial?.first,
+                holderPublicKey = holderMaterial?.second,
+                holderAlg = holderMaterial?.third,
             )
         )
+    }
+
+    private fun String.hexToByteArrayOrNull(): ByteArray? {
+        if (isEmpty() || length % 2 != 0 || any { !it.isDigit() && it.lowercaseChar() !in 'a'..'f' }) {
+            return null
+        }
+        return chunked(2)
+            .map { it.toInt(16).toByte() }
+            .toByteArray()
     }
 }
