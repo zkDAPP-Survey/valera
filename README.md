@@ -143,7 +143,18 @@ android.cert.password=myStrongPassword123
 
 > **Note:** Screen lock and biometric authentication are required for Valera to function properly.
 
-#### 7. Run the App
+#### 7. (Optional) Rebuild Rust Crypto JNI Libraries
+
+Run this only if you are changing crypto/signing code in `rust-crypto`.
+
+```powershell
+cd valera\rust-crypto
+.\build.ps1
+# or with policy bypass
+powershell -NoProfile -ExecutionPolicy Bypass -File .\build.ps1
+```
+
+#### 8. Run the App
 
 Connect your Android device (via USB or WiFi) or start the emulator, then run the app from Android Studio.
 

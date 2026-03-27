@@ -44,6 +44,10 @@ object ZkDAPPShareHelper {
         val status: String,
         val requestId: String? = null,
         val presentation: String? = null,
+        val voteHash: String? = null,
+        val holderSignature: String? = null,
+        val holderPublicKey: String? = null,
+        val holderAlg: String? = null,
         val errorCode: String? = null,
         val errorMessage: String? = null,
     )
@@ -211,23 +215,28 @@ object ZkDAPPShareHelper {
         response: StructuredPresentationResponse,
     ): Boolean {
         return try {
-            val fullUrl = buildString {
-                append(callbackUrl)
-                append(if (callbackUrl.contains("?")) "&" else "?")
-                append("status=").append(URLEncoder.encode(response.status, "UTF-8"))
-                response.requestId?.let {
-                    append("&requestId=").append(URLEncoder.encode(it, "UTF-8"))
-                }
-                response.presentation?.let {
-                    append("&presentation=").append(URLEncoder.encode(it, "UTF-8"))
-                }
-                response.errorCode?.let {
-                    append("&errorCode=").append(URLEncoder.encode(it, "UTF-8"))
-                }
-                response.errorMessage?.let {
-                    append("&errorMessage=").append(URLEncoder.encode(it, "UTF-8"))
+            val callbackUri = Uri.parse(callbackUrl)
+            val builder = callbackUri.buildUpon().clearQuery()
+
+            callbackUri.queryParameterNames.forEach { name ->
+                if (name != "voteHash") {
+                    callbackUri.getQueryParameters(name).forEach { value ->
+                        builder.appendQueryParameter(name, value)
+                    }
                 }
             }
+
+            builder.appendQueryParameter("status", response.status)
+            response.requestId?.let { builder.appendQueryParameter("requestId", it) }
+            response.presentation?.let { builder.appendQueryParameter("presentation", it) }
+            response.voteHash?.let { builder.appendQueryParameter("voteHash", it) }
+            response.holderSignature?.let { builder.appendQueryParameter("holderSignature", it) }
+            response.holderPublicKey?.let { builder.appendQueryParameter("holderPublicKey", it) }
+            response.holderAlg?.let { builder.appendQueryParameter("holderAlg", it) }
+            response.errorCode?.let { builder.appendQueryParameter("errorCode", it) }
+            response.errorMessage?.let { builder.appendQueryParameter("errorMessage", it) }
+
+            val fullUrl = builder.build().toString()
 
             Napier.d(tag = TAG) { "Sending structured response to zkDAPP: $fullUrl" }
 

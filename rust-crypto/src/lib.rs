@@ -4,7 +4,7 @@ use jni::sys::jstring;
 use sha2::{Sha256, Digest};
 use ark_ed_on_bn254::{EdwardsProjective as JubJubProjective, Fr, EdwardsAffine as JubJubAffine, Fq};
 use ark_ff::{UniformRand, PrimeField, BigInteger, Zero};
-use ark_ec::{CurveGroup, Group, AffineRepr};
+use ark_ec::{CurveGroup, Group};
 use ark_std::rand::SeedableRng;
 
 /// Генерация ключей через Arkworks
@@ -240,3 +240,4 @@ pub extern "system" fn Java_crypto_BabyJubJubNative_verify_1signature(
 
     left == right
 }
+
