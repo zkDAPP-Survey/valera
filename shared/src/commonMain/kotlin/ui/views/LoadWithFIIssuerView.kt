@@ -41,7 +41,9 @@ import at.asitplus.valera.resources.Res
 import at.asitplus.valera.resources.button_label_cancel
 import at.asitplus.valera.resources.button_label_confirm
 import at.asitplus.valera.resources.button_label_submit_request
+import at.asitplus.valera.resources.info_text_select_credential_type
 import at.asitplus.valera.resources.prompt_confirm_fiissuer_request
+import at.asitplus.valera.resources.prompt_select_credential_type
 import at.asitplus.valera.resources.text_label_credential_type
 import at.asitplus.valera.resources.text_label_optional_for_now
 import at.asitplus.valera.resources.heading_label_fiissuer_screen
@@ -193,10 +195,18 @@ private fun CredentialTypeDropdown(
         modifier = modifier,
     ) {
         OutlinedTextField(
+            singleLine = true,
             readOnly = true,
             value = selectedCredentialType.orEmpty(),
             onValueChange = {},
             label = { Text(stringResource(Res.string.text_label_credential_type)) },
+            placeholder = { Text(stringResource(Res.string.prompt_select_credential_type)) },
+            supportingText = {
+                Text(
+                    text = stringResource(Res.string.info_text_select_credential_type),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth(),
         )

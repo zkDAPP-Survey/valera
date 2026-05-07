@@ -60,6 +60,8 @@
     <string name="snackbar_fiissuer_timed_out">FIIssuer-Anfrage hat vor der Freigabe das Zeitlimit erreicht.</string>
     <string name="prompt_confirm_fiissuer_request">Die Anfrage jetzt an FIIssuer senden?</string>
     <string name="text_label_credential_type">Credential-Typ</string>
+    <string name="prompt_select_credential_type">Credential-Typ auswählen</string>
+    <string name="info_text_select_credential_type">Wähle einen Credential-Typ aus, um die benötigten Angaben zu sehen und fortzufahren.</string>
     <string name="text_label_optional_for_now">Vorerst optional</string>
 
     <string name="attribute_friendly_name_bpk">BPK</string>

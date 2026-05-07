@@ -31,15 +31,13 @@ class LoadWithFIIssuerViewModel(
             runCatching {
                 fiIssuerService.listCredentialTypeNames()
             }.onSuccess { names ->
-                val selected = names.firstOrNull()
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     credentialTypeNames = names,
-                    selectedCredentialType = selected,
+                    selectedCredentialType = null,
                     selectedCredentialTypeDetails = null,
                     claimValues = emptyMap(),
                 )
-                selected?.let { loadCredentialTypeDetails(it) }
             }.onFailure { error ->
                 Napier.w("FIIssuer: failed to load credential type names", error)
                 _uiState.value = _uiState.value.copy(
