@@ -6,6 +6,7 @@ import at.asitplus.wallet.app.common.ProvisioningService
 import at.asitplus.wallet.app.common.SESSION_NAME
 import at.asitplus.wallet.app.common.SigningService
 import at.asitplus.wallet.app.common.dcapi.DCAPIExportService
+import at.asitplus.wallet.app.common.fiissuer.FIIssuerDocumentScanService
 import at.asitplus.wallet.app.common.fiissuer.FIIssuerService
 import at.asitplus.wallet.app.common.fiissuer.FIIssuerPollingService
 import org.koin.core.module.dsl.scopedOf
@@ -22,5 +23,6 @@ fun communicationsModule() = module {
     }
     singleOf(::SigningService)
     singleOf(::DCAPIExportService)
+    singleOf(::FIIssuerDocumentScanService)
     singleOf(::FIIssuerService)
 }

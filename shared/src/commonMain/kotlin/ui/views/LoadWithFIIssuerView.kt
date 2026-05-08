@@ -1,7 +1,6 @@
 package ui.views
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -42,7 +41,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import at.asitplus.valera.resources.Res
 import at.asitplus.valera.resources.button_label_cancel
@@ -164,31 +162,6 @@ fun LoadWithFIIssuerView(
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(stringResource(Res.string.button_label_scan_document))
-                }
-            }
-
-            state.lastScannedDocumentText?.takeIf { it.isNotBlank() }?.let { scannedText ->
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 12.dp)
-                        .border(
-                            width = 1.dp,
-                            color = MaterialTheme.colorScheme.outline,
-                            shape = MaterialTheme.shapes.small,
-                        )
-                        .padding(12.dp),
-                ) {
-                    Text(
-                        text = "Recognized text",
-                        style = MaterialTheme.typography.titleSmall,
-                    )
-                    Text(
-                        text = scannedText,
-                        style = MaterialTheme.typography.bodySmall,
-                        fontFamily = FontFamily.Monospace,
-                        modifier = Modifier.padding(top = 8.dp),
-                    )
                 }
             }
 
