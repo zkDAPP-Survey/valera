@@ -1,9 +1,5 @@
 package ui.composables
 
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import android.graphics.Matrix
-import androidx.exifinterface.media.ExifInterface
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
@@ -31,7 +27,6 @@ import at.asitplus.valera.resources.Res
 import at.asitplus.valera.resources.button_label_choose_from_gallery
 import at.asitplus.valera.resources.button_label_take_photo
 import org.jetbrains.compose.resources.stringResource
-import java.io.ByteArrayOutputStream
 
 @Composable
 actual fun FIIssuerAttachmentActions(
@@ -58,83 +53,14 @@ actual fun FIIssuerAttachmentActions(
         onResult = { success: Boolean ->
             val uri = currentPhotoUri.value
             if (success && uri != null) {
-                val maxDim = 1920 // max width/height to avoid huge uploads
                 try {
-                    // helper to apply EXIF orientation from the saved Uri
-                    fun applyExifRotation(bitmap: Bitmap?, sourceUri: Uri?): Bitmap? {
-                        if (bitmap == null || sourceUri == null) return bitmap
-                        return try {
-                            context.contentResolver.openInputStream(sourceUri)?.use { exifStream ->
-                                val exif = ExifInterface(exifStream)
-                                val orientation = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
-                                val rotation = when (orientation) {
-                                    ExifInterface.ORIENTATION_ROTATE_90 -> 90
-                                    ExifInterface.ORIENTATION_ROTATE_180 -> 180
-                                    ExifInterface.ORIENTATION_ROTATE_270 -> 270
-                                    else -> 0
-                                }
-                                if (rotation == 0) bitmap else {
-                                    val matrix = Matrix().apply { postRotate(rotation.toFloat()) }
-                                    Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
-                                }
-                            } ?: bitmap
-                        } catch (_: Throwable) {
-                            bitmap
-                        }
-                    }
-
-                    // 1) decode bounds to compute sample size
-                    val bounds = context.contentResolver.openInputStream(uri)?.use { input ->
-                        val bopts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-                        BitmapFactory.decodeStream(input, null, bopts)
-                        bopts
-                    } ?: BitmapFactory.Options().apply { outWidth = 1; outHeight = 1 }
-
-                    val outW = bounds.outWidth.takeIf { it > 0 } ?: 1
-                    val outH = bounds.outHeight.takeIf { it > 0 } ?: 1
-                    var inSampleSize = 1
-                    val largest = maxOf(outW, outH)
-                    if (largest > maxDim) {
-                        while (largest / inSampleSize > maxDim) inSampleSize *= 2
-                    }
-
-                    // 2) decode actual bitmap with sampling
-                    val opts = BitmapFactory.Options().apply { this.inSampleSize = inSampleSize }
-                    val bitmap = context.contentResolver.openInputStream(uri)?.use { input2 ->
-                        BitmapFactory.decodeStream(input2, null, opts)
-                    }
-
-                    val oriented = applyExifRotation(bitmap, uri)
-
-                    val bytes = oriented?.let {
-                        val stream = ByteArrayOutputStream()
-                        it.compress(Bitmap.CompressFormat.JPEG, 90, stream)
-                        stream.toByteArray()
-                    } ?: context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-
-                    // If bytes are present but we didn't apply rotation (e.g., bitmap null), attempt to apply orientation from raw bytes
-                    val finalBytes = if (bytes != null && bitmap == null) {
-                        // try decode from bytes and rotate
-                        try {
-                            val decoded = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                            val rotated = applyExifRotation(decoded, uri)
-                            rotated?.let { r ->
-                                val s = ByteArrayOutputStream()
-                                r.compress(Bitmap.CompressFormat.JPEG, 90, s)
-                                s.toByteArray()
-                            } ?: bytes
-                        } catch (_: Throwable) { bytes }
-                    } else bytes
-
-                    onCameraImageSelected(finalBytes)
+                    // Simply read the file from MediaStore as-is (preserves EXIF data)
+                    // EXIF orientation will be applied later in decodeImageBitmap.android.kt
+                    val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                    onCameraImageSelected(bytes)
                 } catch (_: Throwable) {
-                    // fallback: try to read raw bytes
-                    val raw = try {
-                        context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-                    } catch (_: Throwable) {
-                        null
-                    }
-                    onCameraImageSelected(raw)
+                    // fallback
+                    onCameraImageSelected(null)
                 } finally {
                     currentPhotoUri.value = null
                 }
