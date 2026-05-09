@@ -1,6 +1,7 @@
 package ui.composables
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -26,6 +27,7 @@ fun AttachmentThumbnail(
     imageBytes: ByteArray,
     onRemove: () -> Unit,
     modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
 ) {
     val imageBitmap = decodeImageBitmap(imageBytes)
 
@@ -34,7 +36,8 @@ fun AttachmentThumbnail(
             modifier = Modifier
                 .then(modifier)
                 .clip(RoundedCornerShape(8.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant),
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .let { if (onClick != null) it.clickable { onClick() } else it },
         ) {
             Image(
                 bitmap = imageBitmap,
