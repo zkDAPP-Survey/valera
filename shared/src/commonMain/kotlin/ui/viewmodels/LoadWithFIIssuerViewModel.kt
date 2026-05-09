@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import at.asitplus.valera.resources.Res
 import at.asitplus.valera.resources.snackbar_fiissuer_request_submitted
 import at.asitplus.wallet.app.common.WalletMain
+import at.asitplus.wallet.app.common.fiissuer.FIIssuerDocumentScanService
 import at.asitplus.wallet.app.common.fiissuer.FIIssuerCredentialTypeDto
 import at.asitplus.wallet.app.common.fiissuer.FIIssuerService
 import io.github.aakira.napier.Napier
@@ -17,6 +18,7 @@ import org.jetbrains.compose.resources.getString
 class LoadWithFIIssuerViewModel(
     private val walletMain: WalletMain,
     private val fiIssuerService: FIIssuerService,
+    private val documentScanService: FIIssuerDocumentScanService,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(LoadWithFIIssuerUiState())
     val uiState: StateFlow<LoadWithFIIssuerUiState> = _uiState.asStateFlow()
@@ -65,6 +67,25 @@ class LoadWithFIIssuerViewModel(
     fun updateClaimValue(key: String, value: String) {
         _uiState.value = _uiState.value.copy(
             claimValues = _uiState.value.claimValues + (key to value),
+        )
+    }
+
+    fun applyScannedDocumentText(scannedText: String) {
+        val state = _uiState.value
+        val claimKeys = state.selectedCredentialTypeDetails?.requiredClaimKeys.orEmpty()
+        if (claimKeys.isEmpty()) return
+
+        val extractedValues = documentScanService.extractClaimValues(scannedText, claimKeys)
+        if (extractedValues.isEmpty()) {
+            _uiState.value = state.copy(
+                errorMessage = "No matching document data was detected",
+            )
+            return
+        }
+
+        _uiState.value = state.copy(
+            claimValues = state.claimValues + extractedValues,
+            errorMessage = null,
         )
     }
 
@@ -132,6 +153,3 @@ data class LoadWithFIIssuerUiState(
     val isSubmitting: Boolean = false,
     val errorMessage: String? = null,
 )
-
-
-
