@@ -40,6 +40,7 @@ class LoadWithFIIssuerViewModel(
                     selectedCredentialTypeDetails = null,
                     claimValues = emptyMap(),
                     attachments = emptyList(),
+                    scannedAttachmentIndex = null,
                 )
             }.onFailure { error ->
                 Napier.w("FIIssuer: failed to load credential type names", error)
@@ -58,6 +59,7 @@ class LoadWithFIIssuerViewModel(
                 selectedCredentialTypeDetails = null,
                 claimValues = emptyMap(),
                 attachments = emptyList(),
+                scannedAttachmentIndex = null,
                 errorMessage = null,
             )
             loadCredentialTypeDetails(typeName)
@@ -86,9 +88,32 @@ class LoadWithFIIssuerViewModel(
         }
     }
 
+    fun replaceScannedAttachment(imageBytes: ByteArray) {
+        val state = _uiState.value
+        val scannedIndex = state.scannedAttachmentIndex
+        val updatedAttachments = when {
+            scannedIndex == null -> listOf(imageBytes) + state.attachments
+            scannedIndex in state.attachments.indices -> state.attachments.toMutableList().also { it[scannedIndex] = imageBytes }
+            else -> listOf(imageBytes) + state.attachments
+        }
+
+        _uiState.value = state.copy(
+            attachments = updatedAttachments,
+            scannedAttachmentIndex = 0,
+        )
+    }
+
     fun removeAttachment(index: Int) {
+        val scannedIndex = _uiState.value.scannedAttachmentIndex
+        val adjustedScannedIndex = when {
+            scannedIndex == null -> null
+            index == scannedIndex -> null
+            index < scannedIndex -> scannedIndex - 1
+            else -> scannedIndex
+        }
         _uiState.value = _uiState.value.copy(
             attachments = _uiState.value.attachments.filterIndexed { i, _ -> i != index },
+            scannedAttachmentIndex = adjustedScannedIndex,
         )
     }
 
@@ -175,6 +200,7 @@ data class LoadWithFIIssuerUiState(
     val selectedCredentialTypeDetails: FIIssuerCredentialTypeDto? = null,
     val claimValues: Map<String, String> = emptyMap(),
     val attachments: List<ByteArray> = emptyList(),
+    val scannedAttachmentIndex: Int? = null,
     val isSubmitting: Boolean = false,
     val errorMessage: String? = null,
 )

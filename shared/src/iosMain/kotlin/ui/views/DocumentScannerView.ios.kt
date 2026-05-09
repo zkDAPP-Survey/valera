@@ -6,7 +6,9 @@ import androidx.compose.ui.Modifier
 
 @Composable
 actual fun DocumentScannerView(
+    onScannedPhoto: (imageBytes: ByteArray) -> Unit,
     onScannedText: (text: String) -> Unit,
+    captureTrigger: Int,
     modifier: Modifier,
 ) {
     Text(

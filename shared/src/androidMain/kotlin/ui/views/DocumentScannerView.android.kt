@@ -1,14 +1,11 @@
 package ui.views
 
-import android.util.Size
+import android.content.Context
+import android.net.Uri
 import androidx.camera.core.CameraSelector
-import androidx.camera.core.ExperimentalGetImage
-import androidx.camera.core.ImageAnalysis
-import androidx.camera.core.ImageProxy
+import androidx.camera.core.ImageCapture
 import androidx.camera.core.Preview
-import androidx.camera.core.resolutionselector.AspectRatioStrategy
-import androidx.camera.core.resolutionselector.ResolutionSelector
-import androidx.camera.core.resolutionselector.ResolutionStrategy
+import androidx.camera.core.ImageCaptureException
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.layout.Box
@@ -16,10 +13,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
@@ -29,6 +24,7 @@ import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import io.github.aakira.napier.Napier
+import java.io.File
 import java.util.concurrent.Executors
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
@@ -38,119 +34,107 @@ private val documentScannerExecutor = Executors.newSingleThreadExecutor()
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
 actual fun DocumentScannerView(
+    onScannedPhoto: (imageBytes: ByteArray) -> Unit,
     onScannedText: (text: String) -> Unit,
+    captureTrigger: Int,
     modifier: Modifier,
 ) {
     val cameraPermissionState = rememberMultiplePermissionsState(listOf(android.Manifest.permission.CAMERA))
     if (cameraPermissionState.allPermissionsGranted) {
-        DocumentScannerWithGrantedPermission(onScannedText, modifier)
+        DocumentScannerWithGrantedPermission(onScannedPhoto, onScannedText, captureTrigger, modifier)
     } else {
         LaunchedEffect(Unit) {
-            Napier.d("Get Camera Permission")
             cameraPermissionState.launchMultiplePermissionRequest()
         }
     }
 }
 
-@androidx.annotation.OptIn(ExperimentalGetImage::class)
 @Composable
 private fun DocumentScannerWithGrantedPermission(
+    onScannedPhoto: (imageBytes: ByteArray) -> Unit,
     onScannedText: (text: String) -> Unit,
+    captureTrigger: Int,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
-    val preview = Preview.Builder().build()
+    val preview = remember { Preview.Builder().build() }
     val previewView = remember { PreviewView(context) }
     val recognizer = remember { TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS) }
-    var cameraProvider: ProcessCameraProvider? by remember { mutableStateOf(null) }
-    val textAccepted = remember { mutableStateOf(false) }
-    val analysisInFlight = remember { mutableStateOf(false) }
+    val cameraProvider = remember { mutableStateOf<ProcessCameraProvider?>(null) }
+    val imageCapture = remember {
+        ImageCapture.Builder()
+            .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+            .build()
+    }
 
     DisposableEffect(Unit) {
         onDispose {
-            cameraProvider?.unbindAll()
+            cameraProvider.value?.unbindAll()
             recognizer.close()
         }
     }
 
     LaunchedEffect(Unit) {
-        cameraProvider = suspendCoroutine<ProcessCameraProvider> { continuation ->
+        cameraProvider.value = suspendCoroutine<ProcessCameraProvider> { continuation ->
             ProcessCameraProvider.getInstance(context).also { provider ->
                 provider.addListener({ continuation.resume(provider.get()) }, documentScannerExecutor)
             }
         }
-        cameraProvider?.unbindAll()
-
-        val imageAnalysis = ImageAnalysis.Builder()
-            .setResolutionSelector(
-                ResolutionSelector.Builder()
-                    .setAspectRatioStrategy(AspectRatioStrategy.RATIO_16_9_FALLBACK_AUTO_STRATEGY)
-                    .setResolutionStrategy(
-                        ResolutionStrategy(
-                            Size(1280, 720),
-                            ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER,
-                        )
-                    )
-                    .build()
-            )
-            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-            .build()
-
-        imageAnalysis.setAnalyzer(documentScannerExecutor) { imageProxy: ImageProxy ->
-            if (textAccepted.value || analysisInFlight.value) {
-                imageProxy.close()
-                return@setAnalyzer
-            }
-            val image = imageProxy.image
-            if (image == null) {
-                imageProxy.close()
-                return@setAnalyzer
-            }
-            analysisInFlight.value = true
-            recognizer.process(InputImage.fromMediaImage(image, imageProxy.imageInfo.rotationDegrees))
-                .addOnCompleteListener { result ->
-                    imageProxy.close()
-                    analysisInFlight.value = false
-                    if (result.isSuccessful) {
-                        val scannedText = result.result.text.trim()
-                        val meaningfulLineCount = scannedText.lines().count { it.trim().length >= 3 }
-                        val hasDocumentLikeData = listOf(
-                            "name",
-                            "birth",
-                            "document",
-                            "passport",
-                            "expiry",
-                            "issued",
-                            "nationality",
-                            "country",
-                            "<<",
-                        ).any { scannedText.contains(it, ignoreCase = true) }
-                        if (
-                            scannedText.length >= 35 &&
-                            meaningfulLineCount >= 3 &&
-                            hasDocumentLikeData &&
-                            !textAccepted.value
-                        ) {
-                            textAccepted.value = true
-                            onScannedText(scannedText)
-                        }
-                    } else {
-                        Napier.w("DocumentScannerView: OCR failed", throwable = result.exception)
-                    }
-                }
-        }
-
-        cameraProvider?.bindToLifecycle(
+        cameraProvider.value?.unbindAll()
+        cameraProvider.value?.bindToLifecycle(
             lifecycleOwner,
             CameraSelector.DEFAULT_BACK_CAMERA,
             preview,
-            imageAnalysis,
+            imageCapture,
         )
         preview.setSurfaceProvider(previewView.surfaceProvider)
     }
 
-    Box(modifier = modifier) {
-        AndroidView({ previewView }, modifier = Modifier.fillMaxSize())
+    Box(modifier = modifier.fillMaxSize()) {
+        AndroidView(
+            { previewView },
+            modifier = Modifier.fillMaxSize(),
+        )
+    }
+
+    LaunchedEffect(captureTrigger) {
+        if (captureTrigger <= 0) return@LaunchedEffect
+        val outputFile = createTempCaptureFile(context)
+        val outputOptions = ImageCapture.OutputFileOptions.Builder(outputFile).build()
+        imageCapture.takePicture(
+            outputOptions,
+            documentScannerExecutor,
+            object : ImageCapture.OnImageSavedCallback {
+                override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
+                    runCatching {
+                        val bytes = outputFile.readBytes()
+                        onScannedPhoto(bytes)
+                        recognizer.process(InputImage.fromFilePath(context, Uri.fromFile(outputFile)))
+                            .addOnSuccessListener { result ->
+                                val scannedText = result.text.trim()
+                                if (scannedText.isNotBlank()) {
+                                    onScannedText(scannedText)
+                                }
+                            }
+                            .addOnFailureListener { throwable ->
+                                Napier.w("DocumentScannerView: OCR failed", throwable)
+                            }
+                    }.onFailure { throwable ->
+                        Napier.w("DocumentScannerView: capture failed", throwable)
+                    }.also {
+                        runCatching { outputFile.delete() }
+                    }
+                }
+
+                override fun onError(exception: ImageCaptureException) {
+                    Napier.w("DocumentScannerView: capture error", throwable = exception)
+                    runCatching { outputFile.delete() }
+                }
+            }
+        )
     }
 }
+
+private fun createTempCaptureFile(context: Context): File =
+    File.createTempFile("fiissuer_scan_", ".jpg", context.cacheDir)
