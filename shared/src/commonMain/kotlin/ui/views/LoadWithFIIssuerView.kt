@@ -41,15 +41,19 @@ import at.asitplus.valera.resources.Res
 import at.asitplus.valera.resources.button_label_cancel
 import at.asitplus.valera.resources.button_label_confirm
 import at.asitplus.valera.resources.button_label_submit_request
+import at.asitplus.valera.resources.heading_label_fiissuer_screen
+import at.asitplus.valera.resources.info_text_document_photos
 import at.asitplus.valera.resources.info_text_select_credential_type
 import at.asitplus.valera.resources.prompt_confirm_fiissuer_request
 import at.asitplus.valera.resources.prompt_select_credential_type
+import at.asitplus.valera.resources.section_heading_claims
+import at.asitplus.valera.resources.section_heading_document_photos
 import at.asitplus.valera.resources.text_label_credential_type
 import at.asitplus.valera.resources.text_label_optional_for_now
-import at.asitplus.valera.resources.heading_label_fiissuer_screen
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.scope.Scope
+import ui.composables.FIIssuerAttachmentInputSection
 import ui.composables.Logo
 import ui.composables.buttons.NavigateUpButton
 import ui.viewmodels.LoadWithFIIssuerViewModel
@@ -136,16 +140,34 @@ fun LoadWithFIIssuerView(
                 modifier = Modifier.padding(top = 16.dp),
             )
 
-            state.selectedCredentialTypeDetails?.requiredClaimKeys.orEmpty().forEach { key ->
-                val currentValue = state.claimValues[key].orEmpty()
-                OutlinedTextField(
-                    value = currentValue,
-                    onValueChange = { vm.updateClaimValue(key, it) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 12.dp),
-                    label = { Text(key) },
-                    supportingText = { Text(stringResource(Res.string.text_label_optional_for_now)) },
+            if (state.selectedCredentialType != null) {
+                Text(
+                    text = stringResource(Res.string.section_heading_claims),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(top = 20.dp),
+                )
+
+                state.selectedCredentialTypeDetails?.requiredClaimKeys.orEmpty().forEach { key ->
+                    val currentValue = state.claimValues[key].orEmpty()
+                    OutlinedTextField(
+                        value = currentValue,
+                        onValueChange = { vm.updateClaimValue(key, it) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 12.dp),
+                        label = { Text(key) },
+                        supportingText = { Text(stringResource(Res.string.text_label_optional_for_now)) },
+                    )
+                }
+
+                FIIssuerAttachmentInputSection(
+                    label = stringResource(Res.string.section_heading_document_photos),
+                    description = stringResource(Res.string.info_text_document_photos),
+                    attachments = state.attachments,
+                    onGalleryImagesSelected = vm::addAttachments,
+                    onCameraImageSelected = vm::addAttachment,
+                    onRemoveAttachment = vm::removeAttachment,
+                    modifier = Modifier.padding(top = 24.dp),
                 )
             }
 
@@ -191,7 +213,7 @@ private fun CredentialTypeDropdown(
 
     ExposedDropdownMenuBox(
         expanded = expanded,
-        onExpandedChange = { expanded = it },
+        onExpandedChange = { if (credentialTypeNames.isNotEmpty()) expanded = it },
         modifier = modifier,
     ) {
         OutlinedTextField(
@@ -199,13 +221,18 @@ private fun CredentialTypeDropdown(
             readOnly = true,
             value = selectedCredentialType.orEmpty(),
             onValueChange = {},
+            enabled = credentialTypeNames.isNotEmpty(),
             label = { Text(stringResource(Res.string.text_label_credential_type)) },
             placeholder = { Text(stringResource(Res.string.prompt_select_credential_type)) },
-            supportingText = {
-                Text(
-                    text = stringResource(Res.string.info_text_select_credential_type),
-                    style = MaterialTheme.typography.bodySmall,
-                )
+            supportingText = if (selectedCredentialType == null) {
+                {
+                    Text(
+                        text = stringResource(Res.string.info_text_select_credential_type),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            } else {
+                null
             },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth(),

@@ -75,7 +75,9 @@ actual fun PhotoInput(
             .padding(vertical = 4.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Text(text = label, style = MaterialTheme.typography.titleMedium)
+        if (label.isNotBlank()) {
+            Text(text = label, style = MaterialTheme.typography.titleMedium)
+        }
         if (previewBitmap != null) {
             Image(
                 bitmap = previewBitmap.asImageBitmap(),

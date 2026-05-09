@@ -37,6 +37,7 @@ class LoadWithFIIssuerViewModel(
                     selectedCredentialType = null,
                     selectedCredentialTypeDetails = null,
                     claimValues = emptyMap(),
+                    attachments = emptyList(),
                 )
             }.onFailure { error ->
                 Napier.w("FIIssuer: failed to load credential type names", error)
@@ -54,6 +55,7 @@ class LoadWithFIIssuerViewModel(
                 selectedCredentialType = typeName,
                 selectedCredentialTypeDetails = null,
                 claimValues = emptyMap(),
+                attachments = emptyList(),
                 errorMessage = null,
             )
             loadCredentialTypeDetails(typeName)
@@ -66,9 +68,32 @@ class LoadWithFIIssuerViewModel(
         )
     }
 
+    fun addAttachment(imageBytes: ByteArray?) {
+        if (imageBytes != null) {
+            _uiState.value = _uiState.value.copy(
+                attachments = _uiState.value.attachments + imageBytes,
+            )
+        }
+    }
+
+    fun addAttachments(imageBytes: List<ByteArray>) {
+        if (imageBytes.isNotEmpty()) {
+            _uiState.value = _uiState.value.copy(
+                attachments = _uiState.value.attachments + imageBytes,
+            )
+        }
+    }
+
+    fun removeAttachment(index: Int) {
+        _uiState.value = _uiState.value.copy(
+            attachments = _uiState.value.attachments.filterIndexed { i, _ -> i != index },
+        )
+    }
+
     fun submit(onSuccess: () -> Unit) {
         val selectedType = _uiState.value.selectedCredentialType
         val claimValues = _uiState.value.claimValues
+        val attachments = _uiState.value.attachments
         if (selectedType.isNullOrBlank()) {
             _uiState.value = _uiState.value.copy(errorMessage = "Please select a credential type")
             return
@@ -80,6 +105,7 @@ class LoadWithFIIssuerViewModel(
                 fiIssuerService.createCredentialRequest(
                     credentialType = selectedType,
                     claims = claimValues,
+                    attachments = attachments,
                 )
             }.onSuccess { response ->
                 Napier.d("FIIssuer: created credential request transactionId=${response.transactionId} status=${response.status}")
@@ -127,6 +153,7 @@ data class LoadWithFIIssuerUiState(
     val selectedCredentialType: String? = null,
     val selectedCredentialTypeDetails: FIIssuerCredentialTypeDto? = null,
     val claimValues: Map<String, String> = emptyMap(),
+    val attachments: List<ByteArray> = emptyList(),
     val isSubmitting: Boolean = false,
     val errorMessage: String? = null,
 )
