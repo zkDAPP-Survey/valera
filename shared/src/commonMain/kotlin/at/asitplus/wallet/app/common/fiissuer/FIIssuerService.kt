@@ -8,7 +8,11 @@ import io.ktor.client.request.setBody
 import io.ktor.http.encodeURLPath
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.put
+import kotlinx.serialization.json.JsonPrimitive
+import kotlin.io.encoding.Base64
+import kotlin.io.encoding.ExperimentalEncodingApi
 
 @Serializable
 data class FIIssuerCredentialTypeNamesResponseDto(
@@ -63,9 +67,11 @@ class FIIssuerService(
         client.get("$baseUrl/api/credentials/types/${typeName.encodeURLPath()}").body()
     }
 
+    @OptIn(ExperimentalEncodingApi::class)
     suspend fun createCredentialRequest(
         credentialType: String,
         claims: Map<String, String>,
+        attachments: List<ByteArray> = emptyList(),
         proof: String? = null,
     ): FIIssuerCredentialRequestResponseDto = httpService.buildHttpClient().use { client ->
         client.post("$baseUrl/api/credentials/requests") {
@@ -80,6 +86,16 @@ class FIIssuerService(
                             }
                         }
                     )
+                    if (attachments.isNotEmpty()) {
+                        put(
+                            "attachments",
+                            buildJsonArray {
+                                attachments.forEach { bytes ->
+                                    add(JsonPrimitive(Base64.encode(bytes)))
+                                }
+                            }
+                        )
+                    }
                     proof?.takeIf { it.isNotBlank() }?.let { put("proof", it) }
                 }
             )

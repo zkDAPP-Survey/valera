@@ -33,15 +33,15 @@ class LoadWithFIIssuerViewModel(
             runCatching {
                 fiIssuerService.listCredentialTypeNames()
             }.onSuccess { names ->
-                val selected = names.firstOrNull()
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     credentialTypeNames = names,
-                    selectedCredentialType = selected,
+                    selectedCredentialType = null,
                     selectedCredentialTypeDetails = null,
                     claimValues = emptyMap(),
+                    attachments = emptyList(),
+                    scannedAttachmentIndex = null,
                 )
-                selected?.let { loadCredentialTypeDetails(it) }
             }.onFailure { error ->
                 Napier.w("FIIssuer: failed to load credential type names", error)
                 _uiState.value = _uiState.value.copy(
@@ -58,6 +58,8 @@ class LoadWithFIIssuerViewModel(
                 selectedCredentialType = typeName,
                 selectedCredentialTypeDetails = null,
                 claimValues = emptyMap(),
+                attachments = emptyList(),
+                scannedAttachmentIndex = null,
                 errorMessage = null,
             )
             loadCredentialTypeDetails(typeName)
@@ -67,6 +69,51 @@ class LoadWithFIIssuerViewModel(
     fun updateClaimValue(key: String, value: String) {
         _uiState.value = _uiState.value.copy(
             claimValues = _uiState.value.claimValues + (key to value),
+        )
+    }
+
+    fun addAttachment(imageBytes: ByteArray?) {
+        if (imageBytes != null) {
+            _uiState.value = _uiState.value.copy(
+                attachments = _uiState.value.attachments + imageBytes,
+            )
+        }
+    }
+
+    fun addAttachments(imageBytes: List<ByteArray>) {
+        if (imageBytes.isNotEmpty()) {
+            _uiState.value = _uiState.value.copy(
+                attachments = _uiState.value.attachments + imageBytes,
+            )
+        }
+    }
+
+    fun replaceScannedAttachment(imageBytes: ByteArray) {
+        val state = _uiState.value
+        val scannedIndex = state.scannedAttachmentIndex
+        val updatedAttachments = when {
+            scannedIndex == null -> listOf(imageBytes) + state.attachments
+            scannedIndex in state.attachments.indices -> state.attachments.toMutableList().also { it[scannedIndex] = imageBytes }
+            else -> listOf(imageBytes) + state.attachments
+        }
+
+        _uiState.value = state.copy(
+            attachments = updatedAttachments,
+            scannedAttachmentIndex = 0,
+        )
+    }
+
+    fun removeAttachment(index: Int) {
+        val scannedIndex = _uiState.value.scannedAttachmentIndex
+        val adjustedScannedIndex = when {
+            scannedIndex == null -> null
+            index == scannedIndex -> null
+            index < scannedIndex -> scannedIndex - 1
+            else -> scannedIndex
+        }
+        _uiState.value = _uiState.value.copy(
+            attachments = _uiState.value.attachments.filterIndexed { i, _ -> i != index },
+            scannedAttachmentIndex = adjustedScannedIndex,
         )
     }
 
@@ -92,6 +139,7 @@ class LoadWithFIIssuerViewModel(
     fun submit(onSuccess: () -> Unit) {
         val selectedType = _uiState.value.selectedCredentialType
         val claimValues = _uiState.value.claimValues
+        val attachments = _uiState.value.attachments
         if (selectedType.isNullOrBlank()) {
             _uiState.value = _uiState.value.copy(errorMessage = "Please select a credential type")
             return
@@ -103,6 +151,7 @@ class LoadWithFIIssuerViewModel(
                 fiIssuerService.createCredentialRequest(
                     credentialType = selectedType,
                     claims = claimValues,
+                    attachments = attachments,
                 )
             }.onSuccess { response ->
                 Napier.d("FIIssuer: created credential request transactionId=${response.transactionId} status=${response.status}")
@@ -150,6 +199,8 @@ data class LoadWithFIIssuerUiState(
     val selectedCredentialType: String? = null,
     val selectedCredentialTypeDetails: FIIssuerCredentialTypeDto? = null,
     val claimValues: Map<String, String> = emptyMap(),
+    val attachments: List<ByteArray> = emptyList(),
+    val scannedAttachmentIndex: Int? = null,
     val isSubmitting: Boolean = false,
     val errorMessage: String? = null,
 )

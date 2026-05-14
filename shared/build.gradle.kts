@@ -145,6 +145,7 @@ kotlin {
             implementation(libs.androidx.credentials)
             implementation(libs.androidx.credentials.registry.provider)
             implementation(libs.androidx.registry.provider.play.services)
+            implementation("androidx.exifinterface:exifinterface:1.3.7")
         }
 
         getByName("androidDeviceTest").dependencies {

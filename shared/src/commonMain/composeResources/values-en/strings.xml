@@ -62,6 +62,11 @@
     <string name="prompt_confirm_fiissuer_request">Send the request to FIIssuer now?</string>
     <string name="prompt_scan_fiissuer_document">Point the camera at the document. The form will be filled when text is detected.</string>
     <string name="text_label_credential_type">Credential type</string>
+    <string name="prompt_select_credential_type">Select credential type</string>
+    <string name="info_text_select_credential_type">Choose a credential type to view the required claims and continue.</string>
+    <string name="section_heading_claims">Claim details</string>
+    <string name="section_heading_document_photos">Document photos</string>
+    <string name="info_text_document_photos">Please add clear photos of the document pages or cards.</string>
     <string name="text_label_optional_for_now">Optional for now</string>
 
     <string name="attribute_friendly_name_bpk">BPK</string>

@@ -62,6 +62,11 @@
     <string name="prompt_confirm_fiissuer_request">Die Anfrage jetzt an FIIssuer senden?</string>
     <string name="prompt_scan_fiissuer_document">Richte die Kamera auf das Dokument. Das Formular wird ausgefuellt, sobald Text erkannt wurde.</string>
     <string name="text_label_credential_type">Credential-Typ</string>
+    <string name="prompt_select_credential_type">Credential-Typ auswählen</string>
+    <string name="info_text_select_credential_type">Wähle einen Credential-Typ aus, um die benötigten Angaben zu sehen und fortzufahren.</string>
+    <string name="section_heading_claims">Angaben</string>
+    <string name="section_heading_document_photos">Dokumentfotos</string>
+    <string name="info_text_document_photos">Füge gut lesbare Fotos der unten angeforderten Dokumentseiten oder Karten hinzu. Jedes ausgewählte Foto wird sofort hinzugefügt.</string>
     <string name="text_label_optional_for_now">Vorerst optional</string>
 
     <string name="attribute_friendly_name_bpk">BPK</string>

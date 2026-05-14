@@ -14,7 +14,9 @@ actual fun PhotoInput(
     onImageSelected: (ByteArray?) -> Unit,
 ) {
     Column {
-        Text(text = label, style = MaterialTheme.typography.titleMedium)
+        if (label.isNotBlank()) {
+            Text(text = label, style = MaterialTheme.typography.titleMedium)
+        }
         Text(
             text = "Photo capture/pick not implemented on iOS yet.",
             style = MaterialTheme.typography.bodySmall

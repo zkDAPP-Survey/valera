@@ -26,6 +26,7 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -39,6 +40,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -47,14 +49,15 @@ import at.asitplus.valera.resources.button_label_cancel
 import at.asitplus.valera.resources.button_label_confirm
 import at.asitplus.valera.resources.button_label_scan_document
 import at.asitplus.valera.resources.button_label_submit_request
+import at.asitplus.valera.resources.heading_label_fiissuer_screen
 import at.asitplus.valera.resources.prompt_confirm_fiissuer_request
 import at.asitplus.valera.resources.prompt_scan_fiissuer_document
 import at.asitplus.valera.resources.text_label_credential_type
 import at.asitplus.valera.resources.text_label_optional_for_now
-import at.asitplus.valera.resources.heading_label_fiissuer_screen
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.scope.Scope
+import ui.composables.FIIssuerAttachmentInputSection
 import ui.composables.Logo
 import ui.composables.buttons.NavigateUpButton
 import ui.viewmodels.LoadWithFIIssuerViewModel
@@ -72,6 +75,7 @@ fun LoadWithFIIssuerView(
     val state by vm.uiState.collectAsState()
     var showConfirmDialog by rememberSaveable { mutableStateOf(false) }
     var showDocumentScanner by remember { mutableStateOf(false) }
+    var scannerCaptureTrigger by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(state.selectedCredentialType, state.selectedCredentialTypeDetails) {
         if (state.selectedCredentialTypeDetails == null) {
@@ -148,7 +152,7 @@ fun LoadWithFIIssuerView(
                 modifier = Modifier.padding(top = 16.dp),
             )
 
-            if (state.selectedCredentialTypeDetails != null) {
+            if (state.selectedCredentialType != null) {
                 Button(
                     onClick = { showDocumentScanner = true },
                     enabled = !state.isLoading && !state.isSubmitting,
@@ -163,18 +167,34 @@ fun LoadWithFIIssuerView(
                     Spacer(Modifier.width(8.dp))
                     Text(stringResource(Res.string.button_label_scan_document))
                 }
-            }
 
-            state.selectedCredentialTypeDetails?.requiredClaimKeys.orEmpty().forEach { key ->
-                val currentValue = state.claimValues[key].orEmpty()
-                OutlinedTextField(
-                    value = currentValue,
-                    onValueChange = { vm.updateClaimValue(key, it) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 12.dp),
-                    label = { Text(key) },
-                    supportingText = { Text(stringResource(Res.string.text_label_optional_for_now)) },
+                Text(
+                    text = "Claim details",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(top = 20.dp),
+                )
+
+                state.selectedCredentialTypeDetails?.requiredClaimKeys.orEmpty().forEach { key ->
+                    val currentValue = state.claimValues[key].orEmpty()
+                    OutlinedTextField(
+                        value = currentValue,
+                        onValueChange = { vm.updateClaimValue(key, it) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 12.dp),
+                        label = { Text(key) },
+                        supportingText = { Text(stringResource(Res.string.text_label_optional_for_now)) },
+                    )
+                }
+
+                FIIssuerAttachmentInputSection(
+                    label = "Document photos",
+                    description = "Please add clear photos of the document pages or cards.",
+                    attachments = state.attachments,
+                    onGalleryImagesSelected = vm::addAttachments,
+                    onCameraImageSelected = vm::addAttachment,
+                    onRemoveAttachment = vm::removeAttachment,
+                    modifier = Modifier.padding(top = 24.dp),
                 )
             }
 
@@ -193,7 +213,7 @@ fun LoadWithFIIssuerView(
                 TextButton(
                     onClick = {
                         showConfirmDialog = false
-                        vm.submit(onSuccess)
+                                vm.submitFiIssuerRequest(onSuccess)
                     }
                 ) {
                     Text(stringResource(Res.string.button_label_confirm))
@@ -220,17 +240,30 @@ fun LoadWithFIIssuerView(
                             .height(420.dp)
                             .padding(top = 16.dp),
                     ) {
-                        DocumentScannerView(
-                            onScannedText = { scannedText ->
-                                vm.applyScannedDocumentText(scannedText)
+                        ui.views.DocumentScannerView(
+                            onScannedPhoto = { imageBytes: ByteArray ->
+                                vm.replaceScannedAttachment(imageBytes)
                                 showDocumentScanner = false
                             },
+                            onScannedText = { scannedText: String ->
+                                vm.applyScannedDocumentTextFromScan(scannedText)
+                            },
+                            captureTrigger = scannerCaptureTrigger,
                             modifier = Modifier.fillMaxSize(),
                         )
                     }
                 }
             },
-            confirmButton = {},
+            confirmButton = {
+                FilledTonalButton(onClick = { scannerCaptureTrigger++ }) {
+                    Icon(
+                        imageVector = Icons.Outlined.CameraAlt,
+                        contentDescription = null,
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text("Capture")
+                }
+            },
             dismissButton = {
                 TextButton(onClick = { showDocumentScanner = false }) {
                     Text(stringResource(Res.string.button_label_cancel))
@@ -252,14 +285,27 @@ private fun CredentialTypeDropdown(
 
     ExposedDropdownMenuBox(
         expanded = expanded,
-        onExpandedChange = { expanded = it },
+        onExpandedChange = { if (credentialTypeNames.isNotEmpty()) expanded = it },
         modifier = modifier,
     ) {
         OutlinedTextField(
+            singleLine = true,
             readOnly = true,
             value = selectedCredentialType.orEmpty(),
             onValueChange = {},
+            enabled = credentialTypeNames.isNotEmpty(),
             label = { Text(stringResource(Res.string.text_label_credential_type)) },
+            placeholder = { Text("Select credential type") },
+            supportingText = if (selectedCredentialType == null) {
+                {
+                    Text(
+                        text = "Choose a credential type to view the required claims and continue.",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            } else {
+                null
+            },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth(),
         )
@@ -280,3 +326,12 @@ private fun CredentialTypeDropdown(
         }
     }
 }
+
+private fun LoadWithFIIssuerViewModel.submitFiIssuerRequest(onSuccess: () -> Unit) {
+    submit(onSuccess)
+}
+
+private fun LoadWithFIIssuerViewModel.applyScannedDocumentTextFromScan(scannedText: String) {
+    applyScannedDocumentText(scannedText)
+}
+
